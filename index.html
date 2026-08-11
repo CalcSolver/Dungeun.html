@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungeon Explorer - Bosses & Enchantments</title>
+    <title>Dungeon Explorer - Gacha Enchantments & Expanded Realms</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
@@ -61,6 +61,17 @@
         .card.locked { opacity: 0.4; filter: grayscale(1); }
         .card h4 { color: #3498db; margin-bottom: 4px; font-size: 12px; }
         .card p { font-size: 10px; color: #aaa; margin-bottom: 6px; }
+
+        .gacha-box {
+            background: #151520; border: 3px double #9b59b6; border-radius: 12px;
+            padding: 20px; text-align: center; width: 320px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.3);
+            margin-bottom: 15px;
+        }
+        .gacha-display {
+            font-size: 18px; font-weight: bold; height: 50px; display: flex;
+            align-items: center; justify-content: center; background: #0a0a10;
+            border-radius: 6px; border: 1px solid #333; margin: 10px 0; color: #f1c40f;
+        }
 
         .equipment-grid { display: flex; gap: 15px; margin-bottom: 15px; }
         .equip-slot {
@@ -162,11 +173,15 @@
             <button onclick="closeModal('armory-modal')">Exit Armory</button>
         </div>
 
-        <!-- Enchanting Table -->
+        <!-- Enchanting Table (Gacha) -->
         <div id="enchant-modal" class="modal">
-            <h2>Enchanting Table</h2>
-            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Infuse your current weapon with powerful magical traits!</p>
-            <div id="enchant-list" class="grid-container"></div>
+            <h2>Enchanting Altar</h2>
+            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Roll the magical dice to extract high-tier enchantments!</p>
+            <div class="gacha-box">
+                <div id="gacha-display" class="gacha-display">Ready to Roll...</div>
+                <p id="gacha-desc" style="font-size: 11px; color: #aaa; margin-bottom: 12px;">Cost: 75 Coins per Roll</p>
+                <button id="roll-btn" style="background: #9b59b6; padding: 10px 20px; font-size: 13px;" onclick="spinGacha()">Roll Enchantment (75 C)</button>
+            </div>
             <button onclick="closeModal('enchant-modal')">Leave Table</button>
         </div>
 
@@ -191,7 +206,7 @@
         <!-- Mission Board -->
         <div id="mission-modal" class="modal">
             <h2>Select Mission</h2>
-            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Defeat all threats and clear the Bosses!</p>
+            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Select from 10 maps in this realm!</p>
             <div id="mission-list" class="grid-container"></div>
             <button onclick="closeModal('mission-modal')">Cancel</button>
         </div>
@@ -207,7 +222,7 @@
         <div id="game-over" class="modal">
             <h2 id="go-title">DEFEATED</h2>
             <p id="go-desc" style="margin-bottom: 20px; color: #aaa;"></p>
-            <button onclick="returnToLobby()">Return to Lobby</button>
+            <button onclick="returnToLobby()">Respawn in Lobby</button>
         </div>
     </div>
 
@@ -224,41 +239,44 @@
         let unlockedMission = 1; 
         let activeMission = 0;
         let missionCleared = false;
+        let isRolling = false;
 
         let keys = {};
         let mouse = { x: 400, y: 300 };
         let lastTime = 0;
-        let coins = 40;
+        let coins = 100;
 
         let activeWeaponIdx = 0;
-        let activeEnchantment = null; // 'sharpness', 'vampirism', 'knockback', 'fire'
+        let activeEnchantment = null; // Stores object: { name, rarity, desc, damageMultiplier, vampirism, knockback }
         let armorLevel = 1;
 
-        // 10 Distinct Weapons: Standard, Heavy (Slower/Powerful), and Bows (Ranged)
         const WEAPONS = [
-            { name: "Rusty Sword", type: "sword", damage: 20, cd: 0.25, price: 0, range: 50, color: "#95a5a6" },
-            { name: "Iron Broadsword", type: "sword", damage: 35, cd: 0.25, price: 120, range: 55, color: "#bdc3c7" },
-            { name: "Hunting Bow", type: "bow", damage: 30, cd: 0.45, price: 180, range: 350, color: "#d35400" },
-            { name: "Katana", type: "sword", damage: 50, cd: 0.18, price: 280, range: 50, color: "#ecf0f1" },
-            { name: "Heavy Greatsword", type: "heavy", damage: 85, cd: 0.65, price: 380, range: 70, color: "#7f8c8d" },
-            { name: "Longbow", type: "bow", damage: 65, cd: 0.50, price: 500, range: 450, color: "#e67e22" },
-            { name: "Obsidian Waraxe", type: "heavy", damage: 130, cd: 0.85, price: 650, range: 75, color: "#2c3e50" },
-            { name: "Flame Blade", type: "sword", damage: 110, cd: 0.22, price: 850, range: 60, color: "#e74c3c" },
-            { name: "Obsidian Crusher", type: "heavy", damage: 220, cd: 1.10, price: 1100, range: 85, color: "#111119" },
-            { name: "Dragon Bow", type: "bow", damage: 160, cd: 0.40, price: 1400, range: 500, range: 500, color: "#9b59b6" }
+            { name: "Rusty Sword", type: "sword", damage: 25, cd: 0.25, price: 0, range: 50, color: "#95a5a6" },
+            { name: "Iron Broadsword", type: "sword", damage: 40, cd: 0.25, price: 120, range: 55, color: "#bdc3c7" },
+            { name: "Hunting Bow", type: "bow", damage: 35, cd: 0.45, price: 180, range: 350, color: "#d35400" },
+            { name: "Katana", type: "sword", damage: 60, cd: 0.18, price: 280, range: 50, color: "#ecf0f1" },
+            { name: "Heavy Greatsword", type: "heavy", damage: 100, cd: 0.65, price: 380, range: 70, color: "#7f8c8d" },
+            { name: "Longbow", type: "bow", damage: 80, cd: 0.50, price: 500, range: 450, color: "#e67e22" },
+            { name: "Obsidian Waraxe", type: "heavy", damage: 150, cd: 0.85, price: 650, range: 75, color: "#2c3e50" },
+            { name: "Flame Blade", type: "sword", damage: 130, cd: 0.22, price: 850, range: 60, color: "#e74c3c" },
+            { name: "Obsidian Crusher", type: "heavy", damage: 260, cd: 1.10, price: 1100, range: 85, color: "#111119" },
+            { name: "Dragon Bow", type: "bow", damage: 200, cd: 0.40, price: 1400, range: 500, color: "#9b59b6" }
         ];
 
         let unlockedWeapons = [0];
 
-        const ENCHANTMENTS = [
-            { id: "sharpness", name: "Sharpness V", desc: "+35% Bonus Damage", price: 200, color: "#f1c40f" },
-            { id: "vampirism", name: "Vampirism", desc: "Heal 15% of damage dealt", price: 300, color: "#e74c3c" },
-            { id: "knockback", name: "Knockback", desc: "Heavy strike pushes enemies back", price: 250, color: "#3498db" },
-            { id: "fire", name: "Fire Aspect", desc: "Burns target for extra ticks", price: 350, color: "#e67e22" }
+        // Gacha Enchantment Pool
+        const GACHA_POOL = [
+            { name: "Sharpness I", rarity: "Common", desc: "+15% Damage", color: "#bdc3c7", damageMultiplier: 1.15, vampirism: 0, knockback: false, chance: 45 },
+            { name: "Sharpness III", rarity: "Rare", desc: "+30% Damage", color: "#3498db", damageMultiplier: 1.30, vampirism: 0, knockback: false, chance: 30 },
+            { name: "Knockback II", rarity: "Rare", desc: "+20% Dmg & Pushback", color: "#3498db", damageMultiplier: 1.20, vampirism: 0, knockback: true, chance: 15 },
+            { name: "Vampirism", rarity: "Epic", desc: "+25% Dmg & Heal on hit", color: "#9b59b6", damageMultiplier: 1.25, vampirism: 0.15, knockback: false, chance: 7 },
+            { name: "God Slayer", rarity: "Legendary", desc: "+60% Dmg & Lifesteal", color: "#f1c40f", damageMultiplier: 1.60, vampirism: 0.25, knockback: true, chance: 2.5 },
+            { name: "WORLD BREAKER", rarity: "Mythic", desc: "+120% Dmg & Full Heal", color: "#e74c3c", damageMultiplier: 2.20, vampirism: 0.50, knockback: true, chance: 0.5 }
         ];
 
         const player = {
-            x: 400, y: 300, radius: 15, speed: 180,
+            x: 400, y: 300, radius: 15, speed: 190,
             maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 100,
             attackRadius: 55, attackAngle: Math.PI / 2.0,
             attackTimer: 0, isAttacking: false, swingProgress: 0,
@@ -266,24 +284,29 @@
         };
 
         const REGIONS = [
-            { name: "Green Realm", color: "#2ecc71", bgTile: "#1e3323", missions: [1, 2, 3] },
-            { name: "Desert Realm", color: "#f39c12", bgTile: "#3d3019", missions: [4, 5] },
-            { name: "Volcano Realm", color: "#e74c3c", bgTile: "#361919", missions: [6, 7, 8] },
-            { name: "Ice Realm", color: "#3498db", bgTile: "#192d3d", missions: [9, 10] }
+            { name: "Green Realm", color: "#2ecc71", bgTile: "#1e3323" },
+            { name: "Desert Realm", color: "#f39c12", bgTile: "#3d3019" },
+            { name: "Volcano Realm", color: "#e74c3c", bgTile: "#361919" },
+            { name: "Ice Realm", color: "#3498db", bgTile: "#192d3d" }
         ];
 
-        const MISSIONS = {
-            1: { region: 0, name: "Goblins Outpost", enemies: 6, difficulty: 1.3, reward: 30, boss: false, size: { width: 1400, height: 1000 } },
-            2: { region: 0, name: "Thicket Patrol", enemies: 9, difficulty: 1.6, reward: 45, boss: false, size: { width: 1600, height: 1100 } },
-            3: { region: 0, name: "Forest Warden Boss", enemies: 8, difficulty: 2.0, reward: 90, boss: true, size: { width: 1800, height: 1200 } },
-            4: { region: 1, name: "Sandstorm Run", enemies: 12, difficulty: 2.4, reward: 70, boss: false, size: { width: 1800, height: 1200 } },
-            5: { region: 1, name: "Sand Colossus Boss", enemies: 10, difficulty: 2.9, reward: 130, boss: true, size: { width: 2000, height: 1400 } },
-            6: { region: 2, name: "Magma Valley", enemies: 14, difficulty: 3.4, reward: 100, boss: false, size: { width: 2000, height: 1400 } },
-            7: { region: 2, name: "Ash Citadel", enemies: 16, difficulty: 3.9, reward: 130, boss: false, size: { width: 2200, height: 1500 } },
-            8: { region: 2, name: "Inferno Dragon Boss", enemies: 12, difficulty: 4.5, reward: 220, boss: true, size: { width: 2400, height: 1600 } },
-            9: { region: 3, name: "Frozen Tundra", enemies: 18, difficulty: 5.2, reward: 180, boss: false, size: { width: 2400, height: 1600 } },
-            10: { region: 3, name: "Lich King Boss", enemies: 15, difficulty: 6.5, reward: 350, boss: true, size: { width: 2600, height: 1800 } }
-        };
+        // Generates 10 maps per region (40 total)
+        const MISSIONS = {};
+        for (let r = 0; r < 4; r++) {
+            for (let m = 1; m <= 10; m++) {
+                const globalIdx = (r * 10) + m;
+                const isBoss = (m === 10);
+                MISSIONS[globalIdx] = {
+                    region: r,
+                    name: isBoss ? `${REGIONS[r].name} Titan` : `${REGIONS[r].name} - Map ${m}`,
+                    enemies: 5 + (m * 2),
+                    difficulty: 0.8 + (r * 0.4) + (m * 0.05), // Kept easy!
+                    reward: 35 + (globalIdx * 8),
+                    boss: isBoss,
+                    size: { width: 1400 + (m * 80), height: 1000 + (m * 60) }
+                };
+            }
+        }
 
         let enemies = [];
         let playerProjectiles = [];
@@ -299,11 +322,11 @@
                 activeEnchantment, armorLevel, playerLevel: player.level, playerXP: player.xp,
                 playerXpToNext: player.xpToNext, potions: player.potions
             };
-            localStorage.setItem('dungeon_boss_save', JSON.stringify(data));
+            localStorage.setItem('dungeon_gacha_save', JSON.stringify(data));
         }
 
         function loadGame() {
-            const raw = localStorage.getItem('dungeon_boss_save');
+            const raw = localStorage.getItem('dungeon_gacha_save');
             if (!raw) return;
             try {
                 const data = JSON.parse(raw);
@@ -325,7 +348,7 @@
         }
 
         function resetSave() {
-            localStorage.removeItem('dungeon_boss_save');
+            localStorage.removeItem('dungeon_gacha_save');
             location.reload();
         }
 
@@ -349,11 +372,12 @@
             locationState = 'lobby';
             curMapSize = { width: 1200, height: 900 };
             player.x = 600; player.y = 450;
+            player.hp = player.maxHp; // Resets health back to max/100 upon returning to lobby
             enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = [];
             missionCleared = false;
 
             interactables.push({ x: 300, y: 350, radius: 25, type: 'armory', label: 'Armory (F)' });
-            interactables.push({ x: 500, y: 350, radius: 25, type: 'enchant', label: 'Enchant Table (F)' });
+            interactables.push({ x: 500, y: 350, radius: 25, type: 'enchant', label: 'Gacha Enchant (F)' });
             interactables.push({ x: 700, y: 350, radius: 25, type: 'upgrade', label: 'Blacksmith (F)' });
             interactables.push({ x: 900, y: 350, radius: 25, type: 'mission_board', label: 'Missions (F)' });
             interactables.push({ x: 600, y: 750, radius: 30, type: 'boat', label: 'Travel Boat (F)' });
@@ -373,7 +397,7 @@
             player.x = 150; player.y = 150;
             enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = [];
 
-            const chestCount = 2 + Math.floor(mNum / 3);
+            const chestCount = 3 + Math.floor(mNum / 4);
             for (let i = 0; i < chestCount; i++) {
                 interactables.push({
                     x: Math.random() * (curMapSize.width - 300) + 200,
@@ -387,36 +411,35 @@
                 radius: 28, type: 'portal', active: false, label: 'Exit Portal (Locked)'
             });
 
-            // Spawn Regular Harder Enemies
+            // Spawn Enemies - WEAKENED DAMAGE & SPEED SO YOU ONLY DIE IF SURROUNDED BY 3+ ENEMIES
             for (let i = 0; i < config.enemies; i++) {
                 let ex = Math.random() * (curMapSize.width - 400) + 300;
                 let ey = Math.random() * (curMapSize.height - 400) + 300;
-                const isArcher = Math.random() < 0.45;
+                const isArcher = Math.random() < 0.35;
 
                 enemies.push({
                     x: ex, y: ey, radius: 16, isBoss: false,
                     type: isArcher ? 'archer' : 'brawler',
-                    speed: isArcher ? 80 : (100 + (config.difficulty * 12)),
-                    hp: Math.round((isArcher ? 50 : 80) * config.difficulty),
-                    maxHp: Math.round((isArcher ? 50 : 80) * config.difficulty),
-                    damage: Math.round(14 * config.difficulty),
+                    speed: isArcher ? 60 : (70 + (config.difficulty * 5)),
+                    hp: Math.round((isArcher ? 35 : 55) * config.difficulty),
+                    maxHp: Math.round((isArcher ? 35 : 55) * config.difficulty),
+                    damage: Math.round(3.5 * config.difficulty), // Low damage!
                     color: isArcher ? '#f1c40f' : REGIONS[config.region].color,
-                    xpValue: Math.round(20 * config.difficulty),
-                    aggroRange: 380, shootTimer: 0, shootCooldown: 1.5
+                    xpValue: Math.round(15 * config.difficulty),
+                    aggroRange: 320, shootTimer: 0, shootCooldown: 2.2
                 });
             }
 
-            // Spawn Boss if configured
             if (config.boss) {
                 enemies.push({
                     x: curMapSize.width / 2, y: curMapSize.height / 2,
                     radius: 36, isBoss: true, name: config.name,
-                    type: 'brawler', speed: 110 + (config.difficulty * 15),
-                    hp: Math.round(450 * config.difficulty),
-                    maxHp: Math.round(450 * config.difficulty),
-                    damage: Math.round(28 * config.difficulty),
-                    color: '#9b59b6', xpValue: Math.round(150 * config.difficulty),
-                    aggroRange: 500, shootTimer: 0, shootCooldown: 1.0
+                    type: 'brawler', speed: 85,
+                    hp: Math.round(320 * config.difficulty),
+                    maxHp: Math.round(320 * config.difficulty),
+                    damage: Math.round(8 * config.difficulty),
+                    color: '#9b59b6', xpValue: Math.round(120 * config.difficulty),
+                    aggroRange: 450, shootTimer: 0, shootCooldown: 1.5
                 });
             }
             updateUI();
@@ -426,13 +449,13 @@
             interactables.forEach(obj => {
                 if (Math.hypot(player.x - obj.x, player.y - obj.y) < player.radius + obj.radius + 25) {
                     if (obj.type === 'armory') openArmory();
-                    if (obj.type === 'enchant') openEnchantingTable();
+                    if (obj.type === 'enchant') openModal('enchant-modal');
                     if (obj.type === 'upgrade') openModal('upgrade-modal');
                     if (obj.type === 'mission_board') openMissionBoard();
                     if (obj.type === 'boat') openBoatHarbor();
                     if (obj.type === 'chest' && !obj.opened) {
                         obj.opened = true;
-                        const drop = 12 + (activeMission * 6); // Harder Money System
+                        const drop = 15 + (activeMission * 4);
                         coins += drop;
                         addFloatingText(obj.x, obj.y - 20, `+${drop} Coins!`, '#f1c40f', 18);
                         saveGame(); updateUI();
@@ -440,6 +463,43 @@
                     if (obj.type === 'portal' && obj.active) returnToLobby();
                 }
             });
+        }
+
+        function spinGacha() {
+            if (isRolling || coins < 75) return;
+            coins -= 75;
+            isRolling = true;
+            updateUI();
+
+            const display = document.getElementById('gacha-display');
+            document.getElementById('roll-btn').disabled = true;
+
+            let counter = 0;
+            const rollInterval = setInterval(() => {
+                const temp = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
+                display.innerText = temp.name;
+                display.style.color = temp.color;
+                counter++;
+
+                if (counter > 15) {
+                    clearInterval(rollInterval);
+                    // Determine final roll based on probabilities
+                    const rand = Math.random() * 100;
+                    let cumulative = 0;
+                    let selected = GACHA_POOL[0];
+                    for (let enc of GACHA_POOL) {
+                        cumulative += enc.chance;
+                        if (rand <= cumulative) { selected = enc; break; }
+                    }
+
+                    activeEnchantment = selected;
+                    display.innerText = `${selected.name} (${selected.rarity})`;
+                    display.style.color = selected.color;
+                    isRolling = false;
+                    document.getElementById('roll-btn').disabled = false;
+                    saveGame(); updateUI();
+                }
+            }, 100);
         }
 
         function performAttack() {
@@ -450,7 +510,7 @@
             player.attackTimer = w.cd;
 
             let damage = w.damage;
-            if (activeEnchantment === 'sharpness') damage = Math.round(damage * 1.35);
+            if (activeEnchantment) damage = Math.round(damage * activeEnchantment.damageMultiplier);
 
             if (w.type === 'bow') {
                 playerProjectiles.push({
@@ -466,11 +526,11 @@
                         e.hp -= damage;
                         addFloatingText(e.x, e.y - 15, damage.toString(), '#fff', e.isBoss ? 22 : 16);
 
-                        if (activeEnchantment === 'vampirism') {
-                            const heal = Math.max(1, Math.round(damage * 0.15));
+                        if (activeEnchantment && activeEnchantment.vampirism > 0) {
+                            const heal = Math.max(1, Math.round(damage * activeEnchantment.vampirism));
                             player.hp = Math.min(player.maxHp, player.hp + heal);
                         }
-                        if (activeEnchantment === 'knockback') {
+                        if (activeEnchantment && activeEnchantment.knockback) {
                             const angle = Math.atan2(dy, dx);
                             e.x += Math.cos(angle) * 40;
                             e.y += Math.sin(angle) * 40;
@@ -483,7 +543,7 @@
         }
 
         function killEnemy(e) {
-            const rewardCoins = Math.floor(Math.random() * 4) + (e.isBoss ? 25 : 3);
+            const rewardCoins = Math.floor(Math.random() * 5) + (e.isBoss ? 30 : 5);
             coins += rewardCoins;
             gainXP(e.xpValue);
             addFloatingText(e.x, e.y - 25, `+${rewardCoins} Coins`, '#f1c40f', e.isBoss ? 20 : 14);
@@ -494,7 +554,7 @@
                 const config = MISSIONS[activeMission];
                 coins += config.reward;
 
-                if (activeMission === unlockedMission && unlockedMission < 10) unlockedMission++;
+                if (activeMission === unlockedMission && unlockedMission < 40) unlockedMission++;
 
                 const portal = interactables.find(i => i.type === 'portal');
                 if (portal) { portal.active = true; portal.label = 'Exit Portal (F)'; }
@@ -547,37 +607,14 @@
             saveGame(); updateUI(); openArmory();
         }
 
-        function openEnchantingTable() {
-            const container = document.getElementById('enchant-list');
-            container.innerHTML = '';
-            ENCHANTMENTS.forEach(enc => {
-                const isSelected = activeEnchantment === enc.id;
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <h4 style="color:${enc.color}">${enc.name}</h4>
-                    <p>${enc.desc}</p>
-                    <button ${isSelected ? 'disabled' : ''} onclick="applyEnchantment('${enc.id}', ${enc.price})">
-                        ${isSelected ? 'Active' : enc.price + ' C'}
-                    </button>
-                `;
-                container.appendChild(card);
-            });
-            openModal('enchant-modal');
-        }
-
-        function applyEnchantment(id, price) {
-            if (coins >= price) {
-                coins -= price; activeEnchantment = id; saveGame(); updateUI(); openEnchantingTable();
-            }
-        }
-
         function openMissionBoard() {
             const container = document.getElementById('mission-list');
             container.innerHTML = '';
-            for (let i = 1; i <= 10; i++) {
+            const startMap = (currentRegion * 10) + 1;
+            const endMap = startMap + 9;
+
+            for (let i = startMap; i <= endMap; i++) {
                 const m = MISSIONS[i];
-                if (m.region !== currentRegion) continue;
                 const isUnlocked = i <= unlockedMission;
                 const card = document.createElement('div');
                 card.className = `card ${isUnlocked ? '' : 'locked'}`;
@@ -596,7 +633,8 @@
             const container = document.getElementById('region-list');
             container.innerHTML = '';
             REGIONS.forEach((r, idx) => {
-                const isUnlocked = unlockedMission >= r.missions[0];
+                const firstMapInRegion = (idx * 10) + 1;
+                const isUnlocked = unlockedMission >= firstMapInRegion;
                 const card = document.createElement('div');
                 card.className = `card ${isUnlocked ? '' : 'locked'}`;
                 card.innerHTML = `
@@ -629,7 +667,7 @@
         function updateUI() {
             document.getElementById('coins').innerText = coins;
             document.getElementById('level-num').innerText = player.level;
-            document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+            document.getElementById('hp-bar').style.width = `${Math.max(0, (player.hp / player.maxHp)) * 100}%`;
             document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
             
             document.getElementById('region-ui').innerText = `REGION: ${REGIONS[currentRegion].name.toUpperCase()}`;
@@ -640,11 +678,15 @@
             document.getElementById('hud-weapon').innerText = w.name;
             document.getElementById('hud-weapon').style.color = w.color;
             document.getElementById('hud-armor').innerText = `Lvl ${armorLevel}`;
-            document.getElementById('hud-enchant').innerText = activeEnchantment ? activeEnchantment.toUpperCase() : 'None';
-            document.getElementById('hud-potion').innerText = `x${player.potions}`;
+            
+            const enchantText = activeEnchantment ? activeEnchantment.name : 'None';
+            document.getElementById('hud-enchant').innerText = enchantText;
+            if (activeEnchantment) document.getElementById('hud-enchant').style.color = activeEnchantment.color;
 
             document.getElementById('slot-weapon').innerText = w.name;
-            document.getElementById('slot-enchant').innerText = activeEnchantment ? activeEnchantment.toUpperCase() : 'None';
+            document.getElementById('slot-enchant').innerText = enchantText;
+            if (activeEnchantment) document.getElementById('slot-enchant').style.color = activeEnchantment.color;
+            
             document.getElementById('slot-armor').innerText = `Lvl ${armorLevel} Armor`;
             document.getElementById('inv-potions').innerText = `Health Potions: ${player.potions}`;
             document.getElementById('armor-cost').innerText = armorLevel * 80;
@@ -663,7 +705,11 @@
             openModal('game-over');
         }
 
-        function returnToLobby() { closeModal('game-over'); setupLobby(); }
+        function returnToLobby() { 
+            closeModal('game-over'); 
+            setupLobby(); // Fully restores player back to 100% HP
+        }
+
         function addFloatingText(x, y, text, color, size) { floatingTexts.push({ x, y, text, color, size, life: 0.8 }); }
 
         function update(dt) {
@@ -684,7 +730,6 @@
             camera.y = player.y - canvas.height / 2;
             player.facingAngle = Math.atan2(mouse.y - (player.y - camera.y), mouse.x - (player.x - camera.x));
 
-            // Player Bow Projectiles Update
             for (let i = playerProjectiles.length - 1; i >= 0; i--) {
                 const p = playerProjectiles[i];
                 p.x += p.vx * dt; p.y += p.vy * dt;
@@ -698,14 +743,13 @@
                 });
             }
 
-            // Enemies Update (Harder AI)
             enemies.forEach(e => {
                 const dx = player.x - e.x, dy = player.y - e.y;
                 const dist = Math.hypot(dx, dy);
 
                 if (dist < e.aggroRange) {
                     if (e.type === 'archer') {
-                        if (dist > 200) {
+                        if (dist > 220) {
                             e.x += (dx / dist) * e.speed * dt;
                             e.y += (dy / dist) * e.speed * dt;
                         }
@@ -715,7 +759,7 @@
                             const angle = Math.atan2(dy, dx);
                             enemyProjectiles.push({
                                 x: e.x, y: e.y,
-                                vx: Math.cos(angle) * 280, vy: Math.sin(angle) * 280,
+                                vx: Math.cos(angle) * 220, vy: Math.sin(angle) * 220,
                                 damage: e.damage, radius: 5
                             });
                         }
@@ -726,13 +770,12 @@
                         if (dist < player.radius + e.radius) {
                             player.hp -= e.damage * dt;
                             updateUI();
-                            if (player.hp <= 0) showGameOver("DEFEATED", "You pereshed in battle.");
+                            if (player.hp <= 0) showGameOver("DEFEATED", "Overwhelmed by enemies.");
                         }
                     }
                 }
             });
 
-            // Enemy Projectiles
             for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
                 const p = enemyProjectiles[i];
                 p.x += p.vx * dt; p.y += p.vy * dt;
@@ -741,7 +784,7 @@
                     addFloatingText(player.x, player.y - 15, `-${p.damage}`, '#e74c3c', 16);
                     enemyProjectiles.splice(i, 1);
                     updateUI();
-                    if (player.hp <= 0) showGameOver("DEFEATED", "Killed by an enemy projectile.");
+                    if (player.hp <= 0) showGameOver("DEFEATED", "Hit by ranged projectiles.");
                 }
             }
 
@@ -773,7 +816,7 @@
                     ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚔', 0, 5);
                 } else if (obj.type === 'enchant') {
                     ctx.fillStyle = '#9b59b6'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('✨', 0, 5);
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎰', 0, 5);
                 } else if (obj.type === 'upgrade') {
                     ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
                     ctx.fillStyle = '#000'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚒', 0, 5);
