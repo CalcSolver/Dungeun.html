@@ -1,817 +1,271 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungeon Explorer - Extended Realms</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-        body {
-            background-color: #0d0d11;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-        #game-container {
-            position: relative;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
-            border-radius: 8px;
-            overflow: hidden;
-            border: 3px solid #2a2a38;
-        }
-        canvas { display: block; background-color: #050508; cursor: crosshair; }
-        #ui {
-            position: absolute;
-            top: 15px; left: 15px; right: 15px;
-            display: flex; justify-content: space-between;
-            pointer-events: none; font-size: 15px; font-weight: bold;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
-            z-index: 5;
-        }
-        .bar-container {
-            width: 180px; height: 16px; background: rgba(0,0,0,0.7);
-            border: 2px solid #444; border-radius: 8px; overflow: hidden;
-        }
-        .hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); }
-        .xp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60); }
-        
-        /* Minecraft Dungeons Style Bottom HUD */
-        #dungeons-hud {
-            position: absolute;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(18, 18, 26, 0.92);
-            border: 3px solid #4a4a5a;
-            border-radius: 12px;
-            padding: 8px 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
-            z-index: 10;
-        }
-        .hud-slot {
-            width: 60px;
-            height: 60px;
-            background: #14141e;
-            border: 2px solid #38384a;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
-        }
-        .hud-slot.active-slot {
-            border-color: #f1c40f;
-            box-shadow: 0 0 10px rgba(241, 196, 15, 0.4);
-        }
-        .hud-slot .slot-label {
-            position: absolute;
-            top: 2px;
-            left: 4px;
-            font-size: 9px;
-            color: #888;
-            font-weight: bold;
-        }
-        .hud-slot .slot-value {
-            font-size: 11px;
-            font-weight: bold;
-            color: #3498db;
-            text-align: center;
-            margin-top: 8px;
-        }
-        .hud-slot .hotkey {
-            position: absolute;
-            bottom: 2px;
-            right: 4px;
-            font-size: 10px;
-            color: #f1c40f;
-            font-weight: bold;
-        }
-
-        .modal {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(10, 10, 15, 0.92);
-            display: none; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 20; padding: 20px;
-        }
-        .modal h2 { color: #f1c40f; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-        .grid-container { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 700px; margin-bottom: 20px; }
-        .card {
-            background: #1c1c26; border: 2px solid #38384a; border-radius: 8px;
-            padding: 12px; width: 145px; text-align: center; display: flex;
-            flex-direction: column; justify-content: space-between; align-items: center;
-        }
-        .card.locked { opacity: 0.4; filter: grayscale(1); }
-        .card h4 { color: #3498db; margin-bottom: 4px; font-size: 14px; }
-        .card p { font-size: 11px; color: #aaa; margin-bottom: 8px; }
-
-        .equipment-grid {
-            display: flex; gap: 15px; margin-bottom: 15px;
-        }
-        .equip-slot {
-            width: 120px; height: 100px; background: #252533; border: 2px dashed #f1c40f;
-            border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 5px;
-        }
-        
-        button {
-            padding: 8px 16px; font-size: 13px; font-weight: bold;
-            background: #3498db; color: white; border: none; border-radius: 4px;
-            cursor: pointer; transition: background 0.2s, transform 0.1s; pointer-events: auto;
-        }
-        button:hover { background: #2980b9; transform: scale(1.03); }
-        button:disabled { background: #444; cursor: not-allowed; transform: none; }
-        
-        .controls-hint { margin-top: 10px; color: #777; font-size: 13px; text-align: center; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Playful World Engine</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { background: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    #gameContainer { position: relative; width: 800px; height: 600px; background: #5c94fc; border: 4px solid #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    canvas { display: block; background: #87CEEB; }
+    
+    /* Inventory UI */
+    #inventoryOverlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.75); display: none;
+      justify-content: center; align-items: center; gap: 20px;
+      backdrop-filter: blur(4px);
+    }
+    .inv-card {
+      background: #2c2c3e; border: 3px solid #ffcc00; border-radius: 12px;
+      padding: 16px; width: 280px; height: 380px; display: flex; flex-direction: column; align-items: center;
+    }
+    .inv-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; color: #ffcc00; text-transform: uppercase; }
+    .item-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+    .item-slot {
+      width: 70px; height: 70px; background: #1e1e28; border: 2px dashed #555;
+      border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 24px; cursor: pointer; position: relative; transition: all 0.2s;
+    }
+    .item-slot:hover { border-color: #ffcc00; background: #282838; }
+    .item-count { position: absolute; bottom: 2px; right: 6px; font-size: 11px; font-weight: bold; color: #fff; }
+    
+    /* Character Preview */
+    #charCanvas { background: #1a1a24; border-radius: 8px; border: 2px solid #ffcc00; }
+    
+    /* Notification */
+    #hud { position: absolute; top: 12px; left: 12px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 20px; }
+  </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="canvas" width="800" height="600"></canvas>
-
-        <div id="ui">
-            <div>
-                <div style="font-size: 10px;">HEALTH</div>
-                <div class="bar-container"><div id="hp-bar" class="hp-bar"></div></div>
-                <div style="font-size: 10px; margin-top: 4px;">LEVEL <span id="level-num">1</span></div>
-                <div class="bar-container" style="height: 8px;"><div id="xp-bar" class="xp-bar"></div></div>
-            </div>
-            <div style="text-align: right;">
-                <div>COINS: <span id="coins" style="color: #f1c40f;">0</span></div>
-                <div id="region-ui" style="font-size: 12px; color: #2ecc71; margin-top: 4px;">REGION: GREEN REALM</div>
-                <div id="mission-ui" style="font-size: 11px; color: #aaa; margin-top: 2px;">LOCATION: LOBBY HUB</div>
-            </div>
-        </div>
-
-        <!-- Minecraft Dungeons Style Visible Inventory HUD -->
-        <div id="dungeons-hud">
-            <div class="hud-slot active-slot">
-                <span class="slot-label">MELEE</span>
-                <span id="hud-weapon" class="slot-value">Lvl 1 Sword</span>
-            </div>
-            <div class="hud-slot active-slot">
-                <span class="slot-label">ARMOR</span>
-                <span id="hud-armor" class="slot-value" style="color: #e74c3c;">Lvl 1 Armor</span>
-            </div>
-            <div class="hud-slot" style="cursor: pointer;" onclick="usePotion()">
-                <span class="slot-label">POTION</span>
-                <span id="hud-potion" class="slot-value" style="color: #2ecc71;">x1</span>
-                <span class="hotkey">1</span>
-            </div>
-            <div class="hud-slot" style="cursor: pointer;" onclick="toggleInventory()">
-                <span class="slot-label">MENU</span>
-                <span class="slot-value" style="color: #f1c40f;">INVEN</span>
-                <span class="hotkey">E</span>
-            </div>
-        </div>
-
-        <!-- Inventory Modal with Equipment Slots -->
-        <div id="inv-modal" class="modal">
-            <h2>Inventory & Equipment</h2>
-            <div class="equipment-grid">
-                <div class="equip-slot">
-                    <span style="font-size: 10px; color: #888;">WEAPON SLOT</span>
-                    <h4 id="slot-weapon" style="color: #3498db; font-size: 13px;">Lvl 1 Sword</h4>
-                </div>
-                <div class="equip-slot">
-                    <span style="font-size: 10px; color: #888;">ARMOR SLOT</span>
-                    <h4 id="slot-armor" style="color: #e74c3c; font-size: 13px;">Lvl 1 Armor</h4>
-                </div>
-            </div>
-            <div class="grid-container">
-                <div class="card">
-                    <h4>Potions</h4>
-                    <p id="inv-potions">Health Potions: 0</p>
-                    <button onclick="usePotion()">Use Potion (1)</button>
-                </div>
-                <div class="card">
-                    <h4>Clear Data</h4>
-                    <p>Reset All Progress</p>
-                    <button style="background: #e74c3c;" onclick="resetSave()">Reset Save</button>
-                </div>
-            </div>
-            <button onclick="toggleInventory()">Close (E)</button>
-        </div>
-
-        <!-- Gear Upgrade Station -->
-        <div id="upgrade-modal" class="modal">
-            <h2>Blacksmith - Gear Upgrades</h2>
-            <div class="grid-container">
-                <div class="card">
-                    <h4>Upgrade Sword</h4>
-                    <p id="sword-upgrade-desc">+20 Damage</p>
-                    <button id="buy-sword-btn" onclick="upgradeSword()">Upgrade (<span id="sword-cost">60</span> Coins)</button>
-                </div>
-                <div class="card">
-                    <h4>Upgrade Armor</h4>
-                    <p id="armor-upgrade-desc">+40 Max HP</p>
-                    <button id="buy-armor-btn" onclick="upgradeArmor()">Upgrade (<span id="armor-cost">60</span> Coins)</button>
-                </div>
-                <div class="card">
-                    <h4>Health Potion</h4>
-                    <p>Restores 60 HP</p>
-                    <button onclick="buyPotion()">Buy (25 Coins)</button>
-                </div>
-            </div>
-            <button onclick="closeModal('upgrade-modal')">Exit Shop</button>
-        </div>
-
-        <!-- Mission Select Board -->
-        <div id="mission-modal" class="modal">
-            <h2>Select Mission</h2>
-            <p style="margin-bottom: 12px; color: #aaa; font-size: 13px;">Explore the map, slay targets, and find the portal exit to leave!</p>
-            <div id="mission-list" class="grid-container"></div>
-            <button onclick="closeModal('mission-modal')">Cancel</button>
-        </div>
-
-        <!-- Boat Travel Station -->
-        <div id="boat-modal" class="modal">
-            <h2>Travel Harbor</h2>
-            <p style="margin-bottom: 15px; color: #aaa; font-size: 13px;">Sail your boat to newly unlocked regions!</p>
-            <div id="region-list" class="grid-container"></div>
-            <button onclick="closeModal('boat-modal')">Stay Here</button>
-        </div>
-
-        <!-- Game Over Modal -->
-        <div id="game-over" class="modal">
-            <h2 id="go-title">DEFEATED</h2>
-            <p id="go-desc" style="margin-bottom: 20px; color: #aaa;"></p>
-            <button onclick="returnToLobby()">Return to Lobby</button>
-        </div>
+<div id="gameContainer">
+  <div id="hud">Press 'E' for Inventory | Walk to Water for Boat | Find Secret Portal</div>
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  
+  <!-- Inventory Overlay -->
+  <div id="inventoryOverlay">
+    <!-- Character Showcase -->
+    <div class="inv-card">
+      <div class="inv-title">Character</div>
+      <canvas id="charCanvas" width="180" height="260"></canvas>
     </div>
-
-    <div class="controls-hint">
-        <strong>Controls:</strong> WASD / Arrows = Move | Left Click / Space = Attack | 1 = Drink Potion | E = Inventory | F = Interact
+    
+    <!-- Minimal Items Grid -->
+    <div class="inv-card">
+      <div class="inv-title">Bag</div>
+      <div class="item-grid" id="itemGrid"></div>
     </div>
-
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-
-        // State & Progression
-        let locationState = 'lobby'; // 'lobby', 'dungeon'
-        let currentRegion = 0; // 0: Green, 1: Desert, 2: Volcano, 3: Ice
-        let unlockedMission = 1; // Highest mission unlocked (1 to 10)
-        let activeMission = 0;
-        let missionCleared = false;
-
-        let keys = {};
-        let mouse = { x: 400, y: 300 };
-        let lastTime = 0;
-        let coins = 60;
-
-        // Upgrades Tracker
-        let swordLevel = 1;
-        let armorLevel = 1;
-
-        // Player Stats
-        const player = {
-            x: 400, y: 300, radius: 15, speed: 190,
-            maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 100,
-            baseDamage: 25, attackRadius: 55, attackAngle: Math.PI / 2.2,
-            attackCooldown: 0.3, attackTimer: 0, isAttacking: false, swingProgress: 0,
-            facingAngle: 0, potions: 1
-        };
-
-        // Regions Metadata
-        const REGIONS = [
-            { name: "Green Realm", color: "#2ecc71", bgTile: "#1e3323", missions: [1, 2, 3] },
-            { name: "Desert Realm", color: "#f39c12", bgTile: "#3d3019", missions: [4, 5] },
-            { name: "Volcano Realm", color: "#e74c3c", bgTile: "#361919", missions: [6, 7, 8] },
-            { name: "Ice Realm", color: "#3498db", bgTile: "#192d3d", missions: [9, 10] }
-        ];
-
-        // 10 Distinct Mission Configurations
-        const MISSIONS = {
-            1: { region: 0, name: "Goblins Outpost", enemies: 5, difficulty: 1, reward: 80, size: { width: 1400, height: 1000 } },
-            2: { region: 0, name: "Thicket Patrol", enemies: 8, difficulty: 1.2, reward: 120, size: { width: 1600, height: 1100 } },
-            3: { region: 0, name: "Verdant Fortress", enemies: 12, difficulty: 1.5, reward: 180, size: { width: 1800, height: 1200 } },
-            4: { region: 1, name: "Sandstorm Run", enemies: 10, difficulty: 1.8, reward: 240, size: { width: 1800, height: 1200 } },
-            5: { region: 1, name: "Sunken Tomb", enemies: 14, difficulty: 2.2, reward: 320, size: { width: 2000, height: 1400 } },
-            6: { region: 2, name: "Magma Valley", enemies: 12, difficulty: 2.6, reward: 400, size: { width: 2000, height: 1400 } },
-            7: { region: 2, name: "Ash Citadel", enemies: 16, difficulty: 3.0, reward: 500, size: { width: 2200, height: 1500 } },
-            8: { region: 2, name: "Molten Core", enemies: 20, difficulty: 3.5, reward: 650, size: { width: 2400, height: 1600 } },
-            9: { region: 3, name: "Frozen Tundra", enemies: 18, difficulty: 4.0, reward: 800, size: { width: 2400, height: 1600 } },
-            10: { region: 3, name: "Glacial Peak", enemies: 25, difficulty: 5.0, reward: 1200, size: { width: 2600, height: 1800 } }
-        };
-
-        // World Entities
-        let enemies = [];
-        let projectiles = [];
-        let floatingTexts = [];
-        let interactables = [];
-        let curMapSize = { width: 1200, height: 900 };
-        const camera = { x: 0, y: 0 };
-
-        // Automatic Local Storage Save
-        function saveGame() {
-            const data = {
-                coins, unlockedMission, currentRegion,
-                swordLevel, armorLevel,
-                playerLevel: player.level, playerXP: player.xp, playerXpToNext: player.xpToNext,
-                potions: player.potions
-            };
-            localStorage.setItem('dungeon_crawler_save', JSON.stringify(data));
-        }
-
-        function loadGame() {
-            const raw = localStorage.getItem('dungeon_crawler_save');
-            if (!raw) return;
-            try {
-                const data = JSON.parse(raw);
-                coins = data.coins ?? coins;
-                unlockedMission = data.unlockedMission ?? unlockedMission;
-                currentRegion = data.currentRegion ?? currentRegion;
-                swordLevel = data.swordLevel ?? swordLevel;
-                armorLevel = data.armorLevel ?? armorLevel;
-                player.level = data.playerLevel ?? player.level;
-                player.xp = data.playerXP ?? player.xp;
-                player.xpToNext = data.playerXpToNext ?? player.xpToNext;
-                player.potions = data.potions ?? player.potions;
-                
-                player.maxHp = 100 + ((armorLevel - 1) * 40) + ((player.level - 1) * 15);
-                player.hp = player.maxHp;
-            } catch(e) { console.error("Save load failed", e); }
-        }
-
-        function resetSave() {
-            localStorage.removeItem('dungeon_crawler_save');
-            location.reload();
-        }
-
-        // Inputs
-        window.addEventListener('keydown', e => {
-            const k = e.key.toLowerCase();
-            keys[k] = true;
-            if (k === 'e') toggleInventory();
-            if (k === 'f') interactWithNearby();
-            if (k === '1') usePotion();
-        });
-        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-        canvas.addEventListener('mousemove', e => {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = e.clientX - rect.left;
-            mouse.y = e.clientY - rect.top;
-        });
-        canvas.addEventListener('mousedown', e => { if (e.button === 0) performAttack(); });
-
-        // Lobby Setup
-        function setupLobby() {
-            locationState = 'lobby';
-            curMapSize = { width: 1200, height: 900 };
-            player.x = 600; player.y = 450;
-            enemies = []; projectiles = []; interactables = [];
-            missionCleared = false;
-
-            // Spawn Hub Stations
-            interactables.push({ x: 350, y: 350, radius: 25, type: 'upgrade', label: 'Blacksmith (F)' });
-            interactables.push({ x: 850, y: 350, radius: 25, type: 'mission_board', label: 'Mission Board (F)' });
-            interactables.push({ x: 600, y: 750, radius: 30, type: 'boat', label: 'Travel Boat (F)' });
-
-            updateUI();
-        }
-
-        // Dungeon Setup
-        function startMission(mNum) {
-            if (mNum > unlockedMission) return;
-            activeMission = mNum;
-            const config = MISSIONS[mNum];
-            locationState = 'dungeon';
-            curMapSize = config.size;
-            missionCleared = false;
-            closeModal('mission-modal');
-
-            player.x = 150; player.y = 150;
-            enemies = []; projectiles = []; interactables = [];
-
-            // Add Chests
-            const chestCount = 3 + Math.floor(mNum / 2);
-            for (let i = 0; i < chestCount; i++) {
-                interactables.push({
-                    x: Math.random() * (curMapSize.width - 300) + 200,
-                    y: Math.random() * (curMapSize.height - 300) + 200,
-                    radius: 18, type: 'chest', opened: false, label: 'Chest (F)'
-                });
-            }
-
-            // Spawn Exit Portal (Inactive until cleared)
-            interactables.push({
-                x: curMapSize.width - 150,
-                y: curMapSize.height - 150,
-                radius: 28, type: 'portal', active: false, label: 'Exit Portal (Locked)'
-            });
-
-            // Spawn Enemies (Archers are Yellow)
-            for (let i = 0; i < config.enemies; i++) {
-                let ex = Math.random() * (curMapSize.width - 400) + 300;
-                let ey = Math.random() * (curMapSize.height - 400) + 300;
-                const isArcher = Math.random() < 0.4; // 40% Archer Mobs
-
-                enemies.push({
-                    x: ex, y: ey, radius: 16,
-                    type: isArcher ? 'archer' : 'brawler',
-                    speed: isArcher ? 60 : (75 + (config.difficulty * 10)),
-                    hp: Math.round((isArcher ? 30 : 45) * config.difficulty),
-                    maxHp: Math.round((isArcher ? 30 : 45) * config.difficulty),
-                    damage: Math.round(8 * config.difficulty),
-                    color: isArcher ? '#f1c40f' : REGIONS[config.region].color, // Archers are yellow!
-                    xpValue: Math.round(25 * config.difficulty),
-                    aggroRange: 280,
-                    shootTimer: 0,
-                    shootCooldown: 2.0
-                });
-            }
-            updateUI();
-        }
-
-        function interactWithNearby() {
-            interactables.forEach(obj => {
-                if (Math.hypot(player.x - obj.x, player.y - obj.y) < player.radius + obj.radius + 25) {
-                    if (obj.type === 'upgrade') openModal('upgrade-modal');
-                    if (obj.type === 'mission_board') openMissionBoard();
-                    if (obj.type === 'boat') openBoatHarbor();
-                    if (obj.type === 'chest' && !obj.opened) {
-                        obj.opened = true;
-                        const drop = 40 + (activeMission * 25);
-                        coins += drop;
-                        addFloatingText(obj.x, obj.y - 20, `+${drop} Coins!`, '#f1c40f', 20);
-                        saveGame();
-                        updateUI();
-                    }
-                    if (obj.type === 'portal' && obj.active) {
-                        returnToLobby();
-                    }
-                }
-            });
-        }
-
-        function performAttack() {
-            if (player.attackTimer > 0) return;
-            player.isAttacking = true;
-            player.attackTimer = player.attackCooldown;
-
-            const currentDamage = player.baseDamage + ((swordLevel - 1) * 20);
-
-            enemies.forEach(e => {
-                const dx = e.x - player.x, dy = e.y - player.y;
-                if (Math.hypot(dx, dy) <= player.attackRadius + e.radius) {
-                    e.hp -= currentDamage;
-                    addFloatingText(e.x, e.y - 15, currentDamage.toString(), '#fff', 16);
-                    if (e.hp <= 0) killEnemy(e);
-                }
-            });
-        }
-
-        function killEnemy(e) {
-            const rewardCoins = Math.floor(Math.random() * 12) + (activeMission * 5);
-            coins += rewardCoins;
-            gainXP(e.xpValue);
-            addFloatingText(e.x, e.y - 25, `+${rewardCoins} Coins`, '#f1c40f', 15);
-            enemies = enemies.filter(enemy => enemy !== e);
-
-            if (locationState === 'dungeon' && enemies.length === 0 && !missionCleared) {
-                missionCleared = true;
-                const config = MISSIONS[activeMission];
-                coins += config.reward;
-
-                if (activeMission === unlockedMission && unlockedMission < 10) {
-                    unlockedMission++;
-                }
-
-                const portal = interactables.find(i => i.type === 'portal');
-                if (portal) {
-                    portal.active = true;
-                    portal.label = 'Exit Portal (F)';
-                }
-
-                addFloatingText(player.x, player.y - 40, 'ALL ENEMIES DEFEATED!', '#2ecc71', 24);
-                addFloatingText(player.x, player.y - 15, 'Find the Portal to Exit!', '#f1c40f', 18);
-            }
-            saveGame();
-            updateUI();
-        }
-
-        function gainXP(amount) {
-            player.xp += amount;
-            if (player.xp >= player.xpToNext) {
-                player.xp -= player.xpToNext;
-                player.level++;
-                player.maxHp += 15; player.hp = player.maxHp;
-                addFloatingText(player.x, player.y - 35, 'LEVEL UP!', '#2ecc71', 22);
-            }
-            saveGame();
-            updateUI();
-        }
-
-        function openMissionBoard() {
-            const container = document.getElementById('mission-list');
-            container.innerHTML = '';
-
-            for (let i = 1; i <= 10; i++) {
-                const m = MISSIONS[i];
-                if (m.region !== currentRegion) continue;
-
-                const isUnlocked = i <= unlockedMission;
-                const card = document.createElement('div');
-                card.className = `card ${isUnlocked ? '' : 'locked'}`;
-                card.innerHTML = `
-                    <h4>M${i}: ${m.name}</h4>
-                    <p>Targets: ${m.enemies}</p>
-                    <p style="color:#f1c40f;">Reward: ${m.reward} C</p>
-                    <button ${isUnlocked ? '' : 'disabled'} onclick="startMission(${i})">${isUnlocked ? 'Launch' : 'Locked'}</button>
-                `;
-                container.appendChild(card);
-            }
-            openModal('mission-modal');
-        }
-
-        function openBoatHarbor() {
-            const container = document.getElementById('region-list');
-            container.innerHTML = '';
-
-            REGIONS.forEach((r, idx) => {
-                const minMissionReq = r.missions[0];
-                const isUnlocked = unlockedMission >= minMissionReq;
-                const card = document.createElement('div');
-                card.className = `card ${isUnlocked ? '' : 'locked'}`;
-                card.innerHTML = `
-                    <h4 style="color:${r.color}">${r.name}</h4>
-                    <p>Missions ${r.missions[0]} - ${r.missions[r.missions.length - 1]}</p>
-                    <button ${isUnlocked ? '' : 'disabled'} onclick="travelToRegion(${idx})">${idx === currentRegion ? 'Current' : 'Sail Here'}</button>
-                `;
-                container.appendChild(card);
-            });
-            openModal('boat-modal');
-        }
-
-        function travelToRegion(idx) {
-            currentRegion = idx;
-            closeModal('boat-modal');
-            addFloatingText(player.x, player.y - 30, `Sailing to ${REGIONS[idx].name}!`, '#3498db', 22);
-            saveGame();
-            updateUI();
-        }
-
-        function upgradeSword() {
-            const cost = swordLevel * 60;
-            if (coins >= cost) {
-                coins -= cost;
-                swordLevel++;
-                saveGame();
-                updateUI();
-            }
-        }
-
-        function upgradeArmor() {
-            const cost = armorLevel * 60;
-            if (coins >= cost) {
-                coins -= cost;
-                armorLevel++;
-                player.maxHp += 40;
-                player.hp += 40;
-                saveGame();
-                updateUI();
-            }
-        }
-
-        function buyPotion() {
-            if (coins >= 25) {
-                coins -= 25; player.potions++; saveGame(); updateUI();
-            }
-        }
-
-        function usePotion() {
-            if (player.potions > 0 && player.hp < player.maxHp) {
-                player.potions--;
-                player.hp = Math.min(player.maxHp, player.hp + 60);
-                saveGame();
-                updateUI();
-            }
-        }
-
-        function updateUI() {
-            document.getElementById('coins').innerText = coins;
-            document.getElementById('level-num').innerText = player.level;
-            document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
-            document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
-            
-            document.getElementById('region-ui').innerText = `REGION: ${REGIONS[currentRegion].name.toUpperCase()}`;
-            document.getElementById('region-ui').style.color = REGIONS[currentRegion].color;
-            document.getElementById('mission-ui').innerText = locationState === 'lobby' ? "LOCATION: LOBBY HUB" : `MISSION ${activeMission}`;
-
-            // Sync Visible Minecraft Dungeons Bottom HUD
-            document.getElementById('hud-weapon').innerText = `Lvl ${swordLevel}`;
-            document.getElementById('hud-armor').innerText = `Lvl ${armorLevel}`;
-            document.getElementById('hud-potion').innerText = `x${player.potions}`;
-
-            // Inventory Modal Sync
-            document.getElementById('slot-weapon').innerText = `Lvl ${swordLevel} Sword (+${(swordLevel-1)*20} Dmg)`;
-            document.getElementById('slot-armor').innerText = `Lvl ${armorLevel} Armor (+${(armorLevel-1)*40} HP)`;
-            document.getElementById('inv-potions').innerText = `Health Potions: ${player.potions}`;
-
-            document.getElementById('sword-cost').innerText = swordLevel * 60;
-            document.getElementById('armor-cost').innerText = armorLevel * 60;
-        }
-
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-        function toggleInventory() {
-            const el = document.getElementById('inv-modal');
-            el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
-        }
-
-        function showGameOver(title, desc) {
-            document.getElementById('go-title').innerText = title;
-            document.getElementById('go-desc').innerText = desc;
-            openModal('game-over');
-        }
-
-        function returnToLobby() {
-            closeModal('game-over');
-            setupLobby();
-        }
-
-        function addFloatingText(x, y, text, color, size) {
-            floatingTexts.push({ x, y, text, color, size, life: 0.8 });
-        }
-
-        function update(dt) {
-            if (player.attackTimer > 0) player.attackTimer -= dt;
-
-            // Player Movement
-            let mx = 0, my = 0;
-            if (keys['w'] || keys['arrowup']) my -= 1;
-            if (keys['s'] || keys['arrowdown']) my += 1;
-            if (keys['a'] || keys['arrowleft']) mx -= 1;
-            if (keys['d'] || keys['arrowright']) mx += 1;
-
-            if (mx !== 0 && my !== 0) { mx *= 0.7071; my *= 0.7071; }
-            player.x = Math.max(player.radius, Math.min(curMapSize.width - player.radius, player.x + mx * player.speed * dt));
-            player.y = Math.max(player.radius, Math.min(curMapSize.height - player.radius, player.y + my * player.speed * dt));
-
-            // Camera follow
-            camera.x = player.x - canvas.width / 2;
-            camera.y = player.y - canvas.height / 2;
-
-            player.facingAngle = Math.atan2(mouse.y - (player.y - camera.y), mouse.x - (player.x - camera.x));
-
-            // Enemy AI & Ranged Attack Behavior
-            enemies.forEach(e => {
-                const dx = player.x - e.x, dy = player.y - e.y;
-                const dist = Math.hypot(dx, dy);
-
-                if (dist < e.aggroRange) {
-                    if (e.type === 'archer') {
-                        if (dist > 180) {
-                            e.x += (dx / dist) * e.speed * dt;
-                            e.y += (dy / dist) * e.speed * dt;
-                        }
-                        e.shootTimer += dt;
-                        if (e.shootTimer >= e.shootCooldown) {
-                            e.shootTimer = 0;
-                            const angle = Math.atan2(dy, dx);
-                            projectiles.push({
-                                x: e.x, y: e.y,
-                                vx: Math.cos(angle) * 240,
-                                vy: Math.sin(angle) * 240,
-                                damage: e.damage, radius: 4
-                            });
-                        }
-                    } else {
-                        e.x += (dx / dist) * e.speed * dt;
-                        e.y += (dy / dist) * e.speed * dt;
-
-                        if (dist < player.radius + e.radius) {
-                            player.hp -= e.damage * dt;
-                            updateUI();
-                            if (player.hp <= 0) showGameOver("DEFEATED", "You perished in battle.");
-                        }
-                    }
-                }
-            });
-
-            // Projectile Physics (Arrows)
-            for (let i = projectiles.length - 1; i >= 0; i--) {
-                const p = projectiles[i];
-                p.x += p.vx * dt;
-                p.y += p.vy * dt;
-
-                if (Math.hypot(player.x - p.x, player.y - p.y) < player.radius + p.radius) {
-                    player.hp -= p.damage;
-                    addFloatingText(player.x, player.y - 15, `-${p.damage}`, '#e74c3c', 16);
-                    projectiles.splice(i, 1);
-                    updateUI();
-                    if (player.hp <= 0) showGameOver("DEFEATED", "Killed by an enemy arrow.");
-                }
-            }
-
-            // Text Animations
-            floatingTexts.forEach((ft, i) => {
-                ft.y -= 20 * dt; ft.life -= dt;
-                if (ft.life <= 0) floatingTexts.splice(i, 1);
-            });
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            ctx.translate(-camera.x, -camera.y);
-
-            // Ground Floor
-            ctx.fillStyle = locationState === 'lobby' ? '#1c1c24' : REGIONS[currentRegion].bgTile;
-            ctx.fillRect(0, 0, curMapSize.width, curMapSize.height);
-
-            // Map Bounds
-            ctx.strokeStyle = REGIONS[currentRegion].color;
-            ctx.lineWidth = 6;
-            ctx.strokeRect(0, 0, curMapSize.width, curMapSize.height);
-
-            // Interactable Stations / Objects
-            interactables.forEach(obj => {
-                ctx.fillStyle = obj.type === 'upgrade' ? '#f39c12' :
-                                obj.type === 'mission_board' ? '#2ecc71' :
-                                obj.type === 'boat' ? '#3498db' :
-                                obj.type === 'portal' ? (obj.active ? '#9b59b6' : '#444') :
-                                (obj.opened ? '#555' : '#f1c40f');
-                
-                ctx.fillRect(obj.x - obj.radius, obj.y - obj.radius, obj.radius * 2, obj.radius * 2);
-
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial';
-                ctx.fillText(obj.label, obj.x - 30, obj.y - obj.radius - 6);
-            });
-
-            // Enemies (Yellow Triangle Mobs for Ranged Archers)
-            enemies.forEach(e => {
-                ctx.fillStyle = e.color;
-                if (e.type === 'archer') {
-                    ctx.beginPath();
-                    ctx.moveTo(e.x, e.y - e.radius);
-                    ctx.lineTo(e.x - e.radius, e.y + e.radius);
-                    ctx.lineTo(e.x + e.radius, e.y + e.radius);
-                    ctx.closePath();
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(e.x - e.radius, e.y - e.radius, e.radius * 2, e.radius * 2);
-                }
-                
-                // Health bar
-                ctx.fillStyle = '#000'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, 24, 4);
-                ctx.fillStyle = '#e74c3c'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, (e.hp / e.maxHp) * 24, 4);
-            });
-
-            // Projectiles (Arrows)
-            ctx.fillStyle = '#f1c40f';
-            projectiles.forEach(p => {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Hero Player
-            ctx.fillStyle = '#3498db';
-            ctx.fillRect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2);
-
-            // Attack Arc Visual
-            if (player.isAttacking) {
-                ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(player.x, player.y, player.attackRadius, player.facingAngle - 0.5, player.facingAngle + 0.5);
-                ctx.stroke();
-            }
-
-            // Floating Text
-            floatingTexts.forEach(ft => {
-                ctx.fillStyle = ft.color;
-                ctx.font = `bold ${ft.size}px Arial`;
-                ctx.fillText(ft.text, ft.x, ft.y);
-            });
-
-            ctx.restore();
-        }
-
-        function gameLoop(time) {
-            const dt = Math.min((time - lastTime) / 1000, 0.1);
-            lastTime = time;
-            update(dt);
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        loadGame();
-        setupLobby();
-        lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
-    </script>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const charCanvas = document.getElementById('charCanvas');
+const charCtx = charCanvas.getContext('2d');
+
+let keys = {};
+let invOpen = false;
+let secretUnlocked = false;
+
+// Game State
+const player = {
+  x: 100, y: 450, vx: 0, vy: 0,
+  width: 30, height: 50,
+  inBoat: false,
+  equippedArmour: false,
+  equippedBow: false,
+  facing: 1
+};
+
+const items = [
+  { id: 'armour', icon: '🛡️', count: 1, name: 'Armor' },
+  { id: 'bow', icon: '🏹', count: 1, name: 'Bow' },
+  { id: 'arrow', icon: '🏹', count: 24, name: 'Arrows' },
+  { id: 'boat', icon: '⛵', count: 1, name: 'Boat' },
+  { id: 'key', icon: '🔑', count: 1, name: 'Secret Key' }
+];
+
+// Boat Animation state
+let boatBob = 0;
+
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.toLowerCase() === 'e') {
+    invOpen = !invOpen;
+    document.getElementById('inventoryOverlay').style.display = invOpen ? 'flex' : 'none';
+    if (invOpen) drawCharacterPreview();
+  }
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// Render minimal inventory grid
+function renderInventoryUI() {
+  const grid = document.getElementById('itemGrid');
+  grid.innerHTML = '';
+  items.forEach(item => {
+    const slot = document.createElement('div');
+    slot.className = 'item-slot';
+    slot.innerHTML = `<span>${item.icon}</span><span class="item-count">${item.count}</span>`;
+    slot.onclick = () => toggleEquip(item.id);
+    grid.appendChild(slot);
+  });
+}
+renderInventoryUI();
+
+function toggleEquip(id) {
+  if (id === 'armour') player.equippedArmour = !player.equippedArmour;
+  if (id === 'bow') player.equippedBow = !player.equippedBow;
+  drawCharacterPreview();
+}
+
+// Character draw function for inventory preview
+function drawCharacterPreview() {
+  charCtx.clearRect(0, 0, charCanvas.width, charCanvas.height);
+  
+  // Platform
+  charCtx.fillStyle = '#333';
+  charCtx.fillRect(20, 220, 140, 10);
+
+  // Body / Armour
+  charCtx.fillStyle = player.equippedArmour ? '#c0c0c0' : '#ff7b7b';
+  charCtx.fillRect(75, 110, 30, 60);
+
+  // Head
+  charCtx.fillStyle = '#ffdbac';
+  charCtx.beginPath();
+  charCtx.arc(90, 90, 20, 0, Math.PI * 2);
+  charCtx.fill();
+
+  // Helmet / Hat
+  if (player.equippedArmour) {
+    charCtx.fillStyle = '#a0a0a0';
+    charCtx.fillRect(68, 68, 44, 12);
+  }
+
+  // Bow
+  if (player.equippedBow) {
+    charCtx.strokeStyle = '#8b4513';
+    charCtx.lineWidth = 4;
+    charCtx.beginPath();
+    charCtx.arc(115, 140, 25, -Math.PI / 2, Math.PI / 2);
+    charCtx.stroke();
+  }
+}
+
+// Main Game Loop
+function update() {
+  // Movement
+  if (!invOpen) {
+    if (keys['a'] || keys['arrowleft']) { player.vx = -4; player.facing = -1; }
+    else if (keys['d'] || keys['arrowright']) { player.vx = 4; player.facing = 1; }
+    else player.vx = 0;
+
+    if ((keys['w'] || keys[' ']) && player.y >= 450) player.vy = -10;
+  }
+
+  // Gravity
+  player.vy += 0.5;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Ground collision
+  if (player.y > 450) { player.y = 450; player.vy = 0; }
+
+  // Water & Boat logic
+  const waterStart = 500;
+  if (player.x > waterStart) {
+    player.inBoat = true;
+    player.y = 460; // Float level
+  } else {
+    player.inBoat = false;
+  }
+
+  // Boat bobbing animation
+  boatBob += 0.08;
+
+  // Secret Portal Collision
+  if (player.x > 350 && player.x < 410 && player.y >= 440) {
+    secretUnlocked = true;
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Sky & Ground
+  ctx.fillStyle = '#5c94fc';
+  ctx.fillRect(0, 0, canvas.width, 500);
+  ctx.fillStyle = '#7ec850';
+  ctx.fillRect(0, 500, 500, 100);
+
+  // Draw Water Area
+  ctx.fillStyle = '#2b65ec';
+  ctx.fillRect(500, 500, 300, 100);
+
+  // Secret Portal
+  ctx.fillStyle = secretUnlocked ? '#9b59b6' : '#2c3e50';
+  ctx.fillRect(360, 410, 40, 90);
+  if (secretUnlocked) {
+    ctx.fillStyle = '#f1c40f';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('UNLOCKED!', 345, 400);
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('Secret Portal', 345, 400);
+  }
+
+  // Boat Riding Animation & Player Render
+  const floatOffset = Math.sin(boatBob) * 4;
+
+  if (player.inBoat) {
+    // Boat Hull
+    ctx.fillStyle = '#8b4513';
+    ctx.beginPath();
+    ctx.moveTo(player.x - 20, 510 + floatOffset);
+    ctx.lineTo(player.x + 50, 510 + floatOffset);
+    ctx.lineTo(player.x + 40, 530 + floatOffset);
+    ctx.lineTo(player.x - 10, 530 + floatOffset);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ripples
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(player.x + 15, 532 + floatOffset, 25, 0, Math.PI);
+    ctx.stroke();
+  }
+
+  // Render Player Character
+  const renderY = player.inBoat ? player.y - 10 + floatOffset : player.y;
+  
+  // Body
+  ctx.fillStyle = player.equippedArmour ? '#c0c0c0' : '#ff7b7b';
+  ctx.fillRect(player.x, renderY, player.width, player.height);
+
+  // Head
+  ctx.fillStyle = '#ffdbac';
+  ctx.fillRect(player.x + 5, renderY - 15, 20, 15);
+
+  // Bow equipped
+  if (player.equippedBow) {
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(player.x + (player.facing > 0 ? 30 : 0), renderY + 20, 15, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(() => {
+    update();
+    draw();
+  });
+}
+
+draw();
+</script>
 </body>
 </html>
