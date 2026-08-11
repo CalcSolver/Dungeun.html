@@ -40,6 +40,63 @@
         .hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); }
         .xp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60); }
         
+        /* Minecraft Dungeons Style Bottom HUD */
+        #dungeons-hud {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(18, 18, 26, 0.92);
+            border: 3px solid #4a4a5a;
+            border-radius: 12px;
+            padding: 8px 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+        .hud-slot {
+            width: 60px;
+            height: 60px;
+            background: #14141e;
+            border: 2px solid #38384a;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
+        }
+        .hud-slot.active-slot {
+            border-color: #f1c40f;
+            box-shadow: 0 0 10px rgba(241, 196, 15, 0.4);
+        }
+        .hud-slot .slot-label {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 9px;
+            color: #888;
+            font-weight: bold;
+        }
+        .hud-slot .slot-value {
+            font-size: 11px;
+            font-weight: bold;
+            color: #3498db;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .hud-slot .hotkey {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 10px;
+            color: #f1c40f;
+            font-weight: bold;
+        }
+
         .modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(10, 10, 15, 0.92);
@@ -96,6 +153,28 @@
             </div>
         </div>
 
+        <!-- Minecraft Dungeons Style Visible Inventory HUD -->
+        <div id="dungeons-hud">
+            <div class="hud-slot active-slot">
+                <span class="slot-label">MELEE</span>
+                <span id="hud-weapon" class="slot-value">Lvl 1 Sword</span>
+            </div>
+            <div class="hud-slot active-slot">
+                <span class="slot-label">ARMOR</span>
+                <span id="hud-armor" class="slot-value" style="color: #e74c3c;">Lvl 1 Armor</span>
+            </div>
+            <div class="hud-slot" style="cursor: pointer;" onclick="usePotion()">
+                <span class="slot-label">POTION</span>
+                <span id="hud-potion" class="slot-value" style="color: #2ecc71;">x1</span>
+                <span class="hotkey">1</span>
+            </div>
+            <div class="hud-slot" style="cursor: pointer;" onclick="toggleInventory()">
+                <span class="slot-label">MENU</span>
+                <span class="slot-value" style="color: #f1c40f;">INVEN</span>
+                <span class="hotkey">E</span>
+            </div>
+        </div>
+
         <!-- Inventory Modal with Equipment Slots -->
         <div id="inv-modal" class="modal">
             <h2>Inventory & Equipment</h2>
@@ -113,12 +192,7 @@
                 <div class="card">
                     <h4>Potions</h4>
                     <p id="inv-potions">Health Potions: 0</p>
-                    <button onclick="usePotion()">Use Potion</button>
-                </div>
-                <div class="card">
-                    <h4>Save Data</h4>
-                    <p>Save Progress</p>
-                    <button onclick="saveGame()">Save Game</button>
+                    <button onclick="usePotion()">Use Potion (1)</button>
                 </div>
                 <div class="card">
                     <h4>Clear Data</h4>
@@ -177,7 +251,7 @@
     </div>
 
     <div class="controls-hint">
-        <strong>Controls:</strong> WASD / Arrows = Move | Left Click / Space = Attack | E = Inventory | F = Interact
+        <strong>Controls:</strong> WASD / Arrows = Move | Left Click / Space = Attack | 1 = Drink Potion | E = Inventory | F = Interact
     </div>
 
     <script>
@@ -234,13 +308,12 @@
         // World Entities
         let enemies = [];
         let projectiles = [];
-        let particles = [];
         let floatingTexts = [];
         let interactables = [];
         let curMapSize = { width: 1200, height: 900 };
         const camera = { x: 0, y: 0 };
 
-        // Save & Load Functions (Local Storage)
+        // Automatic Local Storage Save
         function saveGame() {
             const data = {
                 coins, unlockedMission, currentRegion,
@@ -249,7 +322,6 @@
                 potions: player.potions
             };
             localStorage.setItem('dungeon_crawler_save', JSON.stringify(data));
-            addFloatingText(player.x, player.y - 30, 'Game Saved!', '#2ecc71', 20);
         }
 
         function loadGame() {
@@ -283,6 +355,7 @@
             keys[k] = true;
             if (k === 'e') toggleInventory();
             if (k === 'f') interactWithNearby();
+            if (k === '1') usePotion();
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         canvas.addEventListener('mousemove', e => {
@@ -321,7 +394,7 @@
             player.x = 150; player.y = 150;
             enemies = []; projectiles = []; interactables = [];
 
-            // Add Chests Spread Out
+            // Add Chests
             const chestCount = 3 + Math.floor(mNum / 2);
             for (let i = 0; i < chestCount; i++) {
                 interactables.push({
@@ -331,14 +404,14 @@
                 });
             }
 
-            // Spawn Exit Portal (Hidden / Inactive until cleared)
+            // Spawn Exit Portal (Inactive until cleared)
             interactables.push({
                 x: curMapSize.width - 150,
                 y: curMapSize.height - 150,
                 radius: 28, type: 'portal', active: false, label: 'Exit Portal (Locked)'
             });
 
-            // Scatter Enemies with Mobs Types (Melee vs Ranged Archers)
+            // Spawn Enemies (Archers are Yellow)
             for (let i = 0; i < config.enemies; i++) {
                 let ex = Math.random() * (curMapSize.width - 400) + 300;
                 let ey = Math.random() * (curMapSize.height - 400) + 300;
@@ -351,7 +424,7 @@
                     hp: Math.round((isArcher ? 30 : 45) * config.difficulty),
                     maxHp: Math.round((isArcher ? 30 : 45) * config.difficulty),
                     damage: Math.round(8 * config.difficulty),
-                    color: isArcher ? '#9b59b6' : REGIONS[config.region].color,
+                    color: isArcher ? '#f1c40f' : REGIONS[config.region].color, // Archers are yellow!
                     xpValue: Math.round(25 * config.difficulty),
                     aggroRange: 280,
                     shootTimer: 0,
@@ -406,7 +479,6 @@
             addFloatingText(e.x, e.y - 25, `+${rewardCoins} Coins`, '#f1c40f', 15);
             enemies = enemies.filter(enemy => enemy !== e);
 
-            // Trigger Portal Activation (No auto forced teleport)
             if (locationState === 'dungeon' && enemies.length === 0 && !missionCleared) {
                 missionCleared = true;
                 const config = MISSIONS[activeMission];
@@ -416,7 +488,6 @@
                     unlockedMission++;
                 }
 
-                // Activate Portal
                 const portal = interactables.find(i => i.type === 'portal');
                 if (portal) {
                     portal.active = true;
@@ -425,8 +496,8 @@
 
                 addFloatingText(player.x, player.y - 40, 'ALL ENEMIES DEFEATED!', '#2ecc71', 24);
                 addFloatingText(player.x, player.y - 15, 'Find the Portal to Exit!', '#f1c40f', 18);
-                saveGame();
             }
+            saveGame();
             updateUI();
         }
 
@@ -438,6 +509,7 @@
                 player.maxHp += 15; player.hp = player.maxHp;
                 addFloatingText(player.x, player.y - 35, 'LEVEL UP!', '#2ecc71', 22);
             }
+            saveGame();
             updateUI();
         }
 
@@ -537,7 +609,12 @@
             document.getElementById('region-ui').style.color = REGIONS[currentRegion].color;
             document.getElementById('mission-ui').innerText = locationState === 'lobby' ? "LOCATION: LOBBY HUB" : `MISSION ${activeMission}`;
 
-            // Inventory Equipment UI
+            // Sync Visible Minecraft Dungeons Bottom HUD
+            document.getElementById('hud-weapon').innerText = `Lvl ${swordLevel}`;
+            document.getElementById('hud-armor').innerText = `Lvl ${armorLevel}`;
+            document.getElementById('hud-potion').innerText = `x${player.potions}`;
+
+            // Inventory Modal Sync
             document.getElementById('slot-weapon').innerText = `Lvl ${swordLevel} Sword (+${(swordLevel-1)*20} Dmg)`;
             document.getElementById('slot-armor').innerText = `Lvl ${armorLevel} Armor (+${(armorLevel-1)*40} HP)`;
             document.getElementById('inv-potions').innerText = `Health Potions: ${player.potions}`;
@@ -595,7 +672,6 @@
 
                 if (dist < e.aggroRange) {
                     if (e.type === 'archer') {
-                        // Keep distance and shoot arrows
                         if (dist > 180) {
                             e.x += (dx / dist) * e.speed * dt;
                             e.y += (dy / dist) * e.speed * dt;
@@ -612,7 +688,6 @@
                             });
                         }
                     } else {
-                        // Standard Melee Brawler
                         e.x += (dx / dist) * e.speed * dt;
                         e.y += (dy / dist) * e.speed * dt;
 
@@ -631,7 +706,6 @@
                 p.x += p.vx * dt;
                 p.y += p.vy * dt;
 
-                // Collision with Player
                 if (Math.hypot(player.x - p.x, player.y - p.y) < player.radius + p.radius) {
                     player.hp -= p.damage;
                     addFloatingText(player.x, player.y - 15, `-${p.damage}`, '#e74c3c', 16);
@@ -676,11 +750,10 @@
                 ctx.fillText(obj.label, obj.x - 30, obj.y - obj.radius - 6);
             });
 
-            // Enemies (Distinct Shapes for Archer Mobs)
+            // Enemies (Yellow Triangle Mobs for Ranged Archers)
             enemies.forEach(e => {
                 ctx.fillStyle = e.color;
                 if (e.type === 'archer') {
-                    // Triangle for Archer
                     ctx.beginPath();
                     ctx.moveTo(e.x, e.y - e.radius);
                     ctx.lineTo(e.x - e.radius, e.y + e.radius);
@@ -688,11 +761,10 @@
                     ctx.closePath();
                     ctx.fill();
                 } else {
-                    // Square for Melee
                     ctx.fillRect(e.x - e.radius, e.y - e.radius, e.radius * 2, e.radius * 2);
                 }
                 
-                // Health bar above enemy
+                // Health bar
                 ctx.fillStyle = '#000'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, 24, 4);
                 ctx.fillStyle = '#e74c3c'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, (e.hp / e.maxHp) * 24, 4);
             });
