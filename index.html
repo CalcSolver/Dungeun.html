@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungeon Explorer - Gacha Enchantments & Expanded Realms</title>
+    <title>Dungeon Explorer - Apocalypse & Temples</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
-            background-color: #0d0d11; color: #fff;
+            background-color: #08080c; color: #fff;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex; flex-direction: column; align-items: center;
             justify-content: center; min-height: 100vh; overflow: hidden;
         }
         #game-container {
-            position: relative; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+            position: relative; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.95);
             border-radius: 8px; overflow: hidden; border: 3px solid #2a2a38;
         }
         canvas { display: block; background-color: #050508; cursor: crosshair; }
@@ -23,7 +23,7 @@
             font-size: 15px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.9); z-index: 5;
         }
         .bar-container {
-            width: 180px; height: 16px; background: rgba(0,0,0,0.7);
+            width: 180px; height: 16px; background: rgba(0,0,0,0.8);
             border: 2px solid #444; border-radius: 8px; overflow: hidden;
         }
         .hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); }
@@ -32,11 +32,11 @@
         #dungeons-hud {
             position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
             display: flex; align-items: center; gap: 10px;
-            background: rgba(18, 18, 26, 0.92); border: 3px solid #4a4a5a;
+            background: rgba(18, 18, 26, 0.95); border: 3px solid #4a4a5a;
             border-radius: 12px; padding: 8px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.8); z-index: 10;
         }
         .hud-slot {
-            width: 65px; height: 60px; background: #14141e;
+            width: 70px; height: 60px; background: #14141e;
             border: 2px solid #38384a; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             position: relative; box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
@@ -48,7 +48,7 @@
 
         .modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(10, 10, 15, 0.94); display: none; flex-direction: column;
+            background: rgba(10, 10, 15, 0.95); display: none; flex-direction: column;
             justify-content: center; align-items: center; z-index: 20; padding: 20px;
         }
         .modal h2 { color: #f1c40f; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
@@ -62,23 +62,10 @@
         .card h4 { color: #3498db; margin-bottom: 4px; font-size: 12px; }
         .card p { font-size: 10px; color: #aaa; margin-bottom: 6px; }
 
-        .gacha-box {
-            background: #151520; border: 3px double #9b59b6; border-radius: 12px;
-            padding: 20px; text-align: center; width: 320px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.3);
-            margin-bottom: 15px;
-        }
-        .gacha-display {
-            font-size: 18px; font-weight: bold; height: 50px; display: flex;
-            align-items: center; justify-content: center; background: #0a0a10;
-            border-radius: 6px; border: 1px solid #333; margin: 10px 0; color: #f1c40f;
+        .diff-btn {
+            width: 180px; padding: 12px; margin: 6px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; border: none;
         }
 
-        .equipment-grid { display: flex; gap: 15px; margin-bottom: 15px; }
-        .equip-slot {
-            width: 140px; height: 90px; background: #252533; border: 2px dashed #f1c40f;
-            border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px;
-        }
-        
         button {
             padding: 6px 12px; font-size: 11px; font-weight: bold;
             background: #3498db; color: white; border: none; border-radius: 4px;
@@ -104,8 +91,8 @@
             </div>
             <div style="text-align: right;">
                 <div>COINS: <span id="coins" style="color: #f1c40f;">0</span></div>
-                <div id="region-ui" style="font-size: 12px; color: #2ecc71; margin-top: 4px;">REGION: GREEN REALM</div>
-                <div id="mission-ui" style="font-size: 11px; color: #aaa; margin-top: 2px;">LOCATION: LOBBY HUB</div>
+                <div id="diff-ui" style="font-size: 11px; color: #e74c3c; margin-top: 2px;">MODE: NORMAL</div>
+                <div id="region-ui" style="font-size: 12px; color: #2ecc71; margin-top: 2px;">REGION: GREEN REALM</div>
             </div>
         </div>
 
@@ -115,12 +102,8 @@
                 <span id="hud-weapon" class="slot-value">Rusty Sword</span>
             </div>
             <div class="hud-slot active-slot">
-                <span class="slot-label">ARMOR</span>
-                <span id="hud-armor" class="slot-value" style="color: #e74c3c;">Lvl 1 Armor</span>
-            </div>
-            <div class="hud-slot active-slot">
-                <span class="slot-label">ENCHANT</span>
-                <span id="hud-enchant" class="slot-value" style="color: #9b59b6;">None</span>
+                <span class="slot-label">SPECIAL</span>
+                <span id="hud-special" class="slot-value" style="color: #f1c40f;">None</span>
             </div>
             <div class="hud-slot" style="cursor: pointer;" onclick="usePotion()">
                 <span class="slot-label">POTION</span>
@@ -134,88 +117,34 @@
             </div>
         </div>
 
+        <!-- Difficulty Selection Modal -->
+        <div id="diff-modal" class="modal" style="display: flex;">
+            <h2>Select Difficulty</h2>
+            <p style="color: #aaa; font-size: 12px; margin-bottom: 15px;">Higher difficulties yield more coins and rare loot!</p>
+            <button class="diff-btn" style="background: #2ecc71;" onclick="setDifficulty('adventure')">Adventure (Easy)</button>
+            <button class="diff-btn" style="background: #f39c12;" onclick="setDifficulty('normal')">Normal (Standard)</button>
+            <button class="diff-btn" style="background: #e74c3c;" onclick="setDifficulty('apocalypse')">Apocalypse (Hardcore)</button>
+        </div>
+
         <!-- Inventory Modal -->
         <div id="inv-modal" class="modal">
-            <h2>Inventory & Equipment</h2>
-            <div class="equipment-grid">
-                <div class="equip-slot">
-                    <span style="font-size: 10px; color: #888;">WEAPON</span>
-                    <h4 id="slot-weapon" style="color: #3498db; font-size: 12px;">Rusty Sword</h4>
-                </div>
-                <div class="equip-slot">
-                    <span style="font-size: 10px; color: #888;">ENCHANTMENT</span>
-                    <h4 id="slot-enchant" style="color: #9b59b6; font-size: 12px;">None</h4>
-                </div>
-                <div class="equip-slot">
-                    <span style="font-size: 10px; color: #888;">ARMOR</span>
-                    <h4 id="slot-armor" style="color: #e74c3c; font-size: 12px;">Lvl 1 Armor</h4>
-                </div>
-            </div>
-            <div class="grid-container">
-                <div class="card">
-                    <h4>Potions</h4>
-                    <p id="inv-potions">Health Potions: 0</p>
-                    <button onclick="usePotion()">Use Potion (1)</button>
-                </div>
-                <div class="card">
-                    <h4>Reset Save</h4>
-                    <p>Clear all progress</p>
-                    <button style="background: #e74c3c;" onclick="resetSave()">Reset</button>
-                </div>
-            </div>
+            <h2>Inventory & Artifacts</h2>
+            <div class="grid-container" id="item-grid"></div>
             <button onclick="toggleInventory()">Close (E)</button>
         </div>
 
-        <!-- Weapon Armory Shop -->
-        <div id="armory-modal" class="modal">
-            <h2>Armory - Weapons</h2>
-            <div id="weapon-list" class="grid-container"></div>
-            <button onclick="closeModal('armory-modal')">Exit Armory</button>
-        </div>
-
-        <!-- Enchanting Table (Gacha) -->
-        <div id="enchant-modal" class="modal">
-            <h2>Enchanting Altar</h2>
-            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Roll the magical dice to extract high-tier enchantments!</p>
-            <div class="gacha-box">
-                <div id="gacha-display" class="gacha-display">Ready to Roll...</div>
-                <p id="gacha-desc" style="font-size: 11px; color: #aaa; margin-bottom: 12px;">Cost: 75 Coins per Roll</p>
-                <button id="roll-btn" style="background: #9b59b6; padding: 10px 20px; font-size: 13px;" onclick="spinGacha()">Roll Enchantment (75 C)</button>
-            </div>
-            <button onclick="closeModal('enchant-modal')">Leave Table</button>
-        </div>
-
-        <!-- Blacksmith Armor Shop -->
-        <div id="upgrade-modal" class="modal">
-            <h2>Blacksmith - Upgrades</h2>
-            <div class="grid-container">
-                <div class="card">
-                    <h4>Upgrade Armor</h4>
-                    <p id="armor-upgrade-desc">+40 Max HP</p>
-                    <button id="buy-armor-btn" onclick="upgradeArmor()">Upgrade (<span id="armor-cost">80</span> Coins)</button>
-                </div>
-                <div class="card">
-                    <h4>Health Potion</h4>
-                    <p>Restores 60 HP</p>
-                    <button onclick="buyPotion()">Buy (35 Coins)</button>
-                </div>
-            </div>
-            <button onclick="closeModal('upgrade-modal')">Exit Shop</button>
+        <!-- Item Shop / Loot Board -->
+        <div id="shop-modal" class="modal">
+            <h2>Artifact Shop (30 Items)</h2>
+            <div id="shop-item-list" class="grid-container"></div>
+            <button onclick="closeModal('shop-modal')">Exit Shop</button>
         </div>
 
         <!-- Mission Board -->
         <div id="mission-modal" class="modal">
             <h2>Select Mission</h2>
-            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Select from 10 maps in this realm!</p>
             <div id="mission-list" class="grid-container"></div>
             <button onclick="closeModal('mission-modal')">Cancel</button>
-        </div>
-
-        <!-- Travel Harbor -->
-        <div id="boat-modal" class="modal">
-            <h2>Travel Harbor</h2>
-            <div id="region-list" class="grid-container"></div>
-            <button onclick="closeModal('boat-modal')">Stay Here</button>
         </div>
 
         <!-- Game Over Modal -->
@@ -227,7 +156,7 @@
     </div>
 
     <div class="controls-hint">
-        <strong>Controls:</strong> WASD / Arrows = Move | Left Click / Space = Attack | 1 = Drink Potion | E = Inventory | F = Interact
+        <strong>Controls:</strong> WASD / Arrows = Move | Click = Attack | 1 = Drink Potion | E = Inventory | F = Interact
     </div>
 
     <script>
@@ -238,8 +167,8 @@
         let currentRegion = 0; 
         let unlockedMission = 1; 
         let activeMission = 0;
-        let missionCleared = false;
-        let isRolling = false;
+        let selectedDifficulty = 'normal';
+        let diffMultipliers = { adventure: 0.7, normal: 1.0, apocalypse: 1.8 };
 
         let keys = {};
         let mouse = { x: 400, y: 300 };
@@ -247,40 +176,61 @@
         let coins = 100;
 
         let activeWeaponIdx = 0;
-        let activeEnchantment = null; // Stores object: { name, rarity, desc, damageMultiplier, vampirism, knockback }
-        let armorLevel = 1;
+        let equippedSpecialItem = null; // Totem of Undying, Soul Reaper, etc.
+
+        // 30 Unique Items Across Rarities
+        const ITEMS_DATABASE = [
+            // Common
+            { id: 1, name: "Wooden Shield", rarity: "Common", desc: "+20 Max HP", cost: 40, hpBonus: 20, type: "passive" },
+            { id: 2, name: "Minor Ring", rarity: "Common", desc: "+5% Attack Speed", cost: 45, type: "passive" },
+            { id: 3, name: "Iron Helm", rarity: "Common", desc: "+30 Max HP", cost: 60, hpBonus: 30, type: "passive" },
+            { id: 4, name: "Leather Boots", rarity: "Common", desc: "+10 Speed", cost: 50, speedBonus: 10, type: "passive" },
+            { id: 5, name: "Copper Charm", rarity: "Common", desc: "+5% Gold Gain", cost: 50, type: "passive" },
+            { id: 6, name: "Bandage Kit", rarity: "Common", desc: "+1 Potion Slot", cost: 40, type: "passive" },
+            // Rare
+            { id: 7, name: "Silver Amulet", rarity: "Rare", desc: "+50 Max HP", cost: 120, hpBonus: 50, type: "passive" },
+            { id: 8, name: "Golden Gauntlet", rarity: "Rare", desc: "+15% Damage", cost: 150, type: "passive" },
+            { id: 9, name: "Swift Cloak", rarity: "Rare", desc: "+25 Speed", cost: 130, speedBonus: 25, type: "passive" },
+            { id: 10, name: "Spiked Collar", rarity: "Rare", desc: "Reflects small damage", cost: 140, type: "passive" },
+            { id: 11, name: "Focus Lens", rarity: "Rare", desc: "+10% Crit Chance", cost: 160, type: "passive" },
+            { id: 12, name: "Heavy Plating", rarity: "Rare", desc: "+80 Max HP", cost: 180, hpBonus: 80, type: "passive" },
+            // Epic
+            { id: 13, name: "Soul Reaper", rarity: "Epic", desc: "Heals 8 HP per kill", cost: 350, type: "special", specialId: "soul_reaper" },
+            { id: 14, name: "Shadow Mask", rarity: "Epic", desc: "+30% Damage", cost: 320, type: "passive" },
+            { id: 15, name: "Phoenix Feather", rarity: "Epic", desc: "Speed surge under 30% HP", cost: 300, type: "passive" },
+            { id: 16, name: "Vampiric Ring", rarity: "Epic", desc: "Potions heal +30 HP", cost: 280, type: "passive" },
+            { id: 17, name: "Titan Greaves", rarity: "Epic", desc: "+120 Max HP", cost: 380, hpBonus: 120, type: "passive" },
+            { id: 18, name: " Berserker Core", rarity: "Epic", desc: "+40% Dmg, -20 HP", cost: 340, hpBonus: -20, type: "passive" },
+            // Legendary
+            { id: 19, name: "Totem of Undying", rarity: "Legendary", desc: "Revives once on death (+100 HP)", cost: 600, type: "special", specialId: "totem" },
+            { id: 20, name: "Dragon Heart", rarity: "Legendary", desc: "+200 Max HP", cost: 550, hpBonus: 200, type: "passive" },
+            { id: 21, name: "Crown of Midas", rarity: "Legendary", desc: "Doubles Gold drops", cost: 500, type: "passive" },
+            { id: 22, name: "Excalibur Crest", rarity: "Legendary", desc: "+60% Damage", cost: 620, type: "passive" },
+            { id: 23, name: "Aegis Shield", rarity: "Legendary", desc: "Blocks 20% of incoming hits", cost: 580, type: "passive" },
+            { id: 24, name: "Chronos Watch", rarity: "Legendary", desc: "Slower enemy projectiles", cost: 520, type: "passive" },
+            // Mythic
+            { id: 25, name: "Orb of Infinity", rarity: "Mythic", desc: "+100% Damage & +150 HP", cost: 1200, hpBonus: 150, type: "passive" },
+            { id: 26, name: "Demon Crown", rarity: "Mythic", desc: "Kills trigger shockwaves", cost: 1100, type: "passive" },
+            { id: 27, name: "Celestial Pendant", rarity: "Mythic", desc: "Full restore upon stage clear", cost: 1000, type: "passive" },
+            { id: 28, name: "Void Mantle", rarity: "Mythic", desc: "+300 Max HP", cost: 1250, hpBonus: 300, type: "passive" },
+            { id: 29, name: "Grimoire of Doom", rarity: "Mythic", desc: "+150% Damage", cost: 1400, type: "passive" },
+            { id: 30, name: "God Eye", rarity: "Mythic", desc: "Reveals map & +500 HP", cost: 2000, hpBonus: 500, type: "passive" }
+        ];
+
+        let ownedItems = [];
 
         const WEAPONS = [
             { name: "Rusty Sword", type: "sword", damage: 25, cd: 0.25, price: 0, range: 50, color: "#95a5a6" },
             { name: "Iron Broadsword", type: "sword", damage: 40, cd: 0.25, price: 120, range: 55, color: "#bdc3c7" },
             { name: "Hunting Bow", type: "bow", damage: 35, cd: 0.45, price: 180, range: 350, color: "#d35400" },
-            { name: "Katana", type: "sword", damage: 60, cd: 0.18, price: 280, range: 50, color: "#ecf0f1" },
-            { name: "Heavy Greatsword", type: "heavy", damage: 100, cd: 0.65, price: 380, range: 70, color: "#7f8c8d" },
-            { name: "Longbow", type: "bow", damage: 80, cd: 0.50, price: 500, range: 450, color: "#e67e22" },
-            { name: "Obsidian Waraxe", type: "heavy", damage: 150, cd: 0.85, price: 650, range: 75, color: "#2c3e50" },
             { name: "Flame Blade", type: "sword", damage: 130, cd: 0.22, price: 850, range: 60, color: "#e74c3c" },
-            { name: "Obsidian Crusher", type: "heavy", damage: 260, cd: 1.10, price: 1100, range: 85, color: "#111119" },
-            { name: "Dragon Bow", type: "bow", damage: 200, cd: 0.40, price: 1400, range: 500, color: "#9b59b6" }
-        ];
-
-        let unlockedWeapons = [0];
-
-        // Gacha Enchantment Pool
-        const GACHA_POOL = [
-            { name: "Sharpness I", rarity: "Common", desc: "+15% Damage", color: "#bdc3c7", damageMultiplier: 1.15, vampirism: 0, knockback: false, chance: 45 },
-            { name: "Sharpness III", rarity: "Rare", desc: "+30% Damage", color: "#3498db", damageMultiplier: 1.30, vampirism: 0, knockback: false, chance: 30 },
-            { name: "Knockback II", rarity: "Rare", desc: "+20% Dmg & Pushback", color: "#3498db", damageMultiplier: 1.20, vampirism: 0, knockback: true, chance: 15 },
-            { name: "Vampirism", rarity: "Epic", desc: "+25% Dmg & Heal on hit", color: "#9b59b6", damageMultiplier: 1.25, vampirism: 0.15, knockback: false, chance: 7 },
-            { name: "God Slayer", rarity: "Legendary", desc: "+60% Dmg & Lifesteal", color: "#f1c40f", damageMultiplier: 1.60, vampirism: 0.25, knockback: true, chance: 2.5 },
-            { name: "WORLD BREAKER", rarity: "Mythic", desc: "+120% Dmg & Full Heal", color: "#e74c3c", damageMultiplier: 2.20, vampirism: 0.50, knockback: true, chance: 0.5 }
+            { name: "Obsidian Crusher", type: "heavy", damage: 260, cd: 1.10, price: 1100, range: 85, color: "#111119" }
         ];
 
         const player = {
             x: 400, y: 300, radius: 15, speed: 190,
-            maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 100,
-            attackRadius: 55, attackAngle: Math.PI / 2.0,
-            attackTimer: 0, isAttacking: false, swingProgress: 0,
-            facingAngle: 0, potions: 1
+            maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 300, // Balanced to require 3+ dungeons
+            attackTimer: 0, facingAngle: 0, potions: 1
         };
 
         const REGIONS = [
@@ -290,19 +240,14 @@
             { name: "Ice Realm", color: "#3498db", bgTile: "#192d3d" }
         ];
 
-        // Generates 10 maps per region (40 total)
         const MISSIONS = {};
         for (let r = 0; r < 4; r++) {
             for (let m = 1; m <= 10; m++) {
                 const globalIdx = (r * 10) + m;
-                const isBoss = (m === 10);
                 MISSIONS[globalIdx] = {
-                    region: r,
-                    name: isBoss ? `${REGIONS[r].name} Titan` : `${REGIONS[r].name} - Map ${m}`,
-                    enemies: 5 + (m * 2),
-                    difficulty: 0.8 + (r * 0.4) + (m * 0.05), // Kept easy!
-                    reward: 35 + (globalIdx * 8),
-                    boss: isBoss,
+                    region: r, name: `${REGIONS[r].name} - Map ${m}`,
+                    enemies: 6 + (m * 2), difficulty: 0.8 + (r * 0.4) + (m * 0.05),
+                    reward: 40 + (globalIdx * 10), xpReward: 100,
                     size: { width: 1400 + (m * 80), height: 1000 + (m * 60) }
                 };
             }
@@ -313,43 +258,48 @@
         let enemyProjectiles = [];
         let floatingTexts = [];
         let interactables = [];
+        let structures = []; // Temples, TNT traps, etc.
         let curMapSize = { width: 1200, height: 900 };
         const camera = { x: 0, y: 0 };
 
+        function setDifficulty(diff) {
+            selectedDifficulty = diff;
+            document.getElementById('diff-modal').style.display = 'none';
+            setupLobby();
+        }
+
         function saveGame() {
-            const data = {
-                coins, unlockedMission, currentRegion, unlockedWeapons, activeWeaponIdx,
-                activeEnchantment, armorLevel, playerLevel: player.level, playerXP: player.xp,
-                playerXpToNext: player.xpToNext, potions: player.potions
-            };
-            localStorage.setItem('dungeon_gacha_save', JSON.stringify(data));
+            const data = { coins, unlockedMission, currentRegion, ownedItems, activeWeaponIdx, equippedSpecialItem, playerLevel: player.level, playerXP: player.xp, playerXpToNext: player.xpToNext, potions: player.potions };
+            localStorage.setItem('dungeon_apocalypse_save', JSON.stringify(data));
         }
 
         function loadGame() {
-            const raw = localStorage.getItem('dungeon_gacha_save');
+            const raw = localStorage.getItem('dungeon_apocalypse_save');
             if (!raw) return;
             try {
                 const data = JSON.parse(raw);
                 coins = data.coins ?? coins;
                 unlockedMission = data.unlockedMission ?? unlockedMission;
                 currentRegion = data.currentRegion ?? currentRegion;
-                unlockedWeapons = data.unlockedWeapons ?? [0];
+                ownedItems = data.ownedItems ?? [];
                 activeWeaponIdx = data.activeWeaponIdx ?? 0;
-                activeEnchantment = data.activeEnchantment ?? null;
-                armorLevel = data.armorLevel ?? armorLevel;
-                player.level = data.playerLevel ?? player.level;
-                player.xp = data.playerXP ?? player.xp;
-                player.xpToNext = data.playerXpToNext ?? player.xpToNext;
-                player.potions = data.potions ?? player.potions;
-                
-                player.maxHp = 100 + ((armorLevel - 1) * 40) + ((player.level - 1) * 15);
-                player.hp = player.maxHp;
-            } catch(e) { console.error("Save load failed", e); }
+                equippedSpecialItem = data.equippedSpecialItem ?? null;
+                player.level = data.playerLevel ?? 1;
+                player.xp = data.playerXP ?? 0;
+                player.xpToNext = data.playerXpToNext ?? 300;
+                player.potions = data.potions ?? 1;
+                recalcStats();
+            } catch(e) {}
         }
 
-        function resetSave() {
-            localStorage.removeItem('dungeon_gacha_save');
-            location.reload();
+        function recalcStats() {
+            let extraHp = 0;
+            ownedItems.forEach(id => {
+                const item = ITEMS_DATABASE.find(i => i.id === id);
+                if (item && item.hpBonus) extraHp += item.hpBonus;
+            });
+            player.maxHp = 100 + extraHp + ((player.level - 1) * 20);
+            player.hp = Math.min(player.hp, player.maxHp);
         }
 
         window.addEventListener('keydown', e => {
@@ -363,8 +313,7 @@
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         canvas.addEventListener('mousemove', e => {
             const rect = canvas.getBoundingClientRect();
-            mouse.x = e.clientX - rect.left;
-            mouse.y = e.clientY - rect.top;
+            mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top;
         });
         canvas.addEventListener('mousedown', e => { if (e.button === 0) performAttack(); });
 
@@ -372,16 +321,11 @@
             locationState = 'lobby';
             curMapSize = { width: 1200, height: 900 };
             player.x = 600; player.y = 450;
-            player.hp = player.maxHp; // Resets health back to max/100 upon returning to lobby
-            enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = [];
-            missionCleared = false;
+            player.hp = player.maxHp;
+            enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = []; structures = [];
 
-            interactables.push({ x: 300, y: 350, radius: 25, type: 'armory', label: 'Armory (F)' });
-            interactables.push({ x: 500, y: 350, radius: 25, type: 'enchant', label: 'Gacha Enchant (F)' });
-            interactables.push({ x: 700, y: 350, radius: 25, type: 'upgrade', label: 'Blacksmith (F)' });
-            interactables.push({ x: 900, y: 350, radius: 25, type: 'mission_board', label: 'Missions (F)' });
-            interactables.push({ x: 600, y: 750, radius: 30, type: 'boat', label: 'Travel Boat (F)' });
-
+            interactables.push({ x: 350, y: 350, radius: 25, type: 'shop', label: 'Artifact Shop (F)' });
+            interactables.push({ x: 850, y: 350, radius: 25, type: 'mission_board', label: 'Missions (F)' });
             updateUI();
         }
 
@@ -391,19 +335,23 @@
             const config = MISSIONS[mNum];
             locationState = 'dungeon';
             curMapSize = config.size;
-            missionCleared = false;
             closeModal('mission-modal');
 
             player.x = 150; player.y = 150;
-            enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = [];
+            enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = []; structures = [];
 
-            const chestCount = 3 + Math.floor(mNum / 4);
-            for (let i = 0; i < chestCount; i++) {
-                interactables.push({
-                    x: Math.random() * (curMapSize.width - 300) + 200,
-                    y: Math.random() * (curMapSize.height - 300) + 200,
-                    radius: 18, type: 'chest', opened: false, label: 'Chest (F)'
+            const diffMod = diffMultipliers[selectedDifficulty];
+
+            // Build Desert Temple Special Structure in Desert Maps
+            if (config.region === 1) {
+                structures.push({
+                    x: curMapSize.width / 2 - 100, y: curMapSize.height / 2 - 100,
+                    w: 200, h: 200, type: 'desert_temple'
                 });
+                // TNT Hazard inside temple
+                interactables.push({ x: curMapSize.width / 2, y: curMapSize.height / 2 + 30, radius: 15, type: 'tnt', primed: false, label: 'TNT Pressure Plate' });
+                // Temple Treasure Chest
+                interactables.push({ x: curMapSize.width / 2, y: curMapSize.height / 2 - 40, radius: 18, type: 'chest', opened: false, label: 'Temple Treasure (F)' });
             }
 
             interactables.push({
@@ -411,35 +359,16 @@
                 radius: 28, type: 'portal', active: false, label: 'Exit Portal (Locked)'
             });
 
-            // Spawn Enemies - WEAKENED DAMAGE & SPEED SO YOU ONLY DIE IF SURROUNDED BY 3+ ENEMIES
-            for (let i = 0; i < config.enemies; i++) {
-                let ex = Math.random() * (curMapSize.width - 400) + 300;
-                let ey = Math.random() * (curMapSize.height - 400) + 300;
-                const isArcher = Math.random() < 0.35;
-
+            // Enemies adjusted to spawn based on selection
+            for (let i = 0; i < Math.round(config.enemies * diffMod); i++) {
                 enemies.push({
-                    x: ex, y: ey, radius: 16, isBoss: false,
-                    type: isArcher ? 'archer' : 'brawler',
-                    speed: isArcher ? 60 : (70 + (config.difficulty * 5)),
-                    hp: Math.round((isArcher ? 35 : 55) * config.difficulty),
-                    maxHp: Math.round((isArcher ? 35 : 55) * config.difficulty),
-                    damage: Math.round(3.5 * config.difficulty), // Low damage!
-                    color: isArcher ? '#f1c40f' : REGIONS[config.region].color,
-                    xpValue: Math.round(15 * config.difficulty),
-                    aggroRange: 320, shootTimer: 0, shootCooldown: 2.2
-                });
-            }
-
-            if (config.boss) {
-                enemies.push({
-                    x: curMapSize.width / 2, y: curMapSize.height / 2,
-                    radius: 36, isBoss: true, name: config.name,
-                    type: 'brawler', speed: 85,
-                    hp: Math.round(320 * config.difficulty),
-                    maxHp: Math.round(320 * config.difficulty),
-                    damage: Math.round(8 * config.difficulty),
-                    color: '#9b59b6', xpValue: Math.round(120 * config.difficulty),
-                    aggroRange: 450, shootTimer: 0, shootCooldown: 1.5
+                    x: Math.random() * (curMapSize.width - 400) + 300,
+                    y: Math.random() * (curMapSize.height - 400) + 300,
+                    radius: 16, type: Math.random() < 0.3 ? 'archer' : 'brawler',
+                    speed: 65 * diffMod, hp: Math.round(45 * config.difficulty * diffMod),
+                    maxHp: Math.round(45 * config.difficulty * diffMod),
+                    damage: Math.round(4.5 * config.difficulty * diffMod),
+                    color: REGIONS[config.region].color, aggroRange: 320, shootTimer: 0
                 });
             }
             updateUI();
@@ -448,94 +377,54 @@
         function interactWithNearby() {
             interactables.forEach(obj => {
                 if (Math.hypot(player.x - obj.x, player.y - obj.y) < player.radius + obj.radius + 25) {
-                    if (obj.type === 'armory') openArmory();
-                    if (obj.type === 'enchant') openModal('enchant-modal');
-                    if (obj.type === 'upgrade') openModal('upgrade-modal');
+                    if (obj.type === 'shop') openShop();
                     if (obj.type === 'mission_board') openMissionBoard();
-                    if (obj.type === 'boat') openBoatHarbor();
                     if (obj.type === 'chest' && !obj.opened) {
                         obj.opened = true;
-                        const drop = 15 + (activeMission * 4);
+                        const drop = 40 + (activeMission * 6);
                         coins += drop;
                         addFloatingText(obj.x, obj.y - 20, `+${drop} Coins!`, '#f1c40f', 18);
                         saveGame(); updateUI();
+                    }
+                    if (obj.type === 'tnt' && !obj.primed) {
+                        obj.primed = true;
+                        addFloatingText(obj.x, obj.y - 20, 'TNT PRIMED! RUN!', '#e74c3c', 20);
+                        setTimeout(() => explodeTNT(obj.x, obj.y), 1500);
                     }
                     if (obj.type === 'portal' && obj.active) returnToLobby();
                 }
             });
         }
 
-        function spinGacha() {
-            if (isRolling || coins < 75) return;
-            coins -= 75;
-            isRolling = true;
-            updateUI();
-
-            const display = document.getElementById('gacha-display');
-            document.getElementById('roll-btn').disabled = true;
-
-            let counter = 0;
-            const rollInterval = setInterval(() => {
-                const temp = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
-                display.innerText = temp.name;
-                display.style.color = temp.color;
-                counter++;
-
-                if (counter > 15) {
-                    clearInterval(rollInterval);
-                    // Determine final roll based on probabilities
-                    const rand = Math.random() * 100;
-                    let cumulative = 0;
-                    let selected = GACHA_POOL[0];
-                    for (let enc of GACHA_POOL) {
-                        cumulative += enc.chance;
-                        if (rand <= cumulative) { selected = enc; break; }
-                    }
-
-                    activeEnchantment = selected;
-                    display.innerText = `${selected.name} (${selected.rarity})`;
-                    display.style.color = selected.color;
-                    isRolling = false;
-                    document.getElementById('roll-btn').disabled = false;
-                    saveGame(); updateUI();
+        function explodeTNT(x, y) {
+            addFloatingText(x, y, 'BOOM!', '#e74c3c', 30);
+            if (Math.hypot(player.x - x, player.y - y) < 120) {
+                player.hp -= 40;
+                checkPlayerDeath("Blown up by Desert Temple TNT!");
+            }
+            enemies.forEach(e => {
+                if (Math.hypot(e.x - x, e.y - y) < 120) {
+                    e.hp -= 150; if (e.hp <= 0) killEnemy(e);
                 }
-            }, 100);
+            });
         }
 
         function performAttack() {
             if (player.attackTimer > 0) return;
             const w = WEAPONS[activeWeaponIdx];
-            player.isAttacking = true;
-            player.swingProgress = 1.0;
             player.attackTimer = w.cd;
-
-            let damage = w.damage;
-            if (activeEnchantment) damage = Math.round(damage * activeEnchantment.damageMultiplier);
 
             if (w.type === 'bow') {
                 playerProjectiles.push({
                     x: player.x, y: player.y,
-                    vx: Math.cos(player.facingAngle) * 450,
-                    vy: Math.sin(player.facingAngle) * 450,
-                    damage: damage, radius: 5, color: w.color
+                    vx: Math.cos(player.facingAngle) * 450, vy: Math.sin(player.facingAngle) * 450,
+                    damage: w.damage, radius: 5, color: w.color
                 });
             } else {
                 enemies.forEach(e => {
-                    const dx = e.x - player.x, dy = e.y - player.y;
-                    if (Math.hypot(dx, dy) <= w.range + e.radius) {
-                        e.hp -= damage;
-                        addFloatingText(e.x, e.y - 15, damage.toString(), '#fff', e.isBoss ? 22 : 16);
-
-                        if (activeEnchantment && activeEnchantment.vampirism > 0) {
-                            const heal = Math.max(1, Math.round(damage * activeEnchantment.vampirism));
-                            player.hp = Math.min(player.maxHp, player.hp + heal);
-                        }
-                        if (activeEnchantment && activeEnchantment.knockback) {
-                            const angle = Math.atan2(dy, dx);
-                            e.x += Math.cos(angle) * 40;
-                            e.y += Math.sin(angle) * 40;
-                        }
-
+                    if (Math.hypot(e.x - player.x, e.y - player.y) <= w.range + e.radius) {
+                        e.hp -= w.damage;
+                        addFloatingText(e.x, e.y - 15, w.damage.toString(), '#fff', 16);
                         if (e.hp <= 0) killEnemy(e);
                     }
                 });
@@ -543,23 +432,23 @@
         }
 
         function killEnemy(e) {
-            const rewardCoins = Math.floor(Math.random() * 5) + (e.isBoss ? 30 : 5);
-            coins += rewardCoins;
-            gainXP(e.xpValue);
-            addFloatingText(e.x, e.y - 25, `+${rewardCoins} Coins`, '#f1c40f', e.isBoss ? 20 : 14);
+            coins += 8;
             enemies = enemies.filter(enemy => enemy !== e);
 
-            if (locationState === 'dungeon' && enemies.length === 0 && !missionCleared) {
-                missionCleared = true;
+            // Special Item Soul Reaper trigger
+            if (equippedSpecialItem === 'soul_reaper') {
+                player.hp = Math.min(player.maxHp, player.hp + 8);
+                addFloatingText(player.x, player.y - 20, '+8 HP (Soul Reaper)', '#9b59b6', 14);
+            }
+
+            if (locationState === 'dungeon' && enemies.length === 0) {
                 const config = MISSIONS[activeMission];
                 coins += config.reward;
-
+                gainXP(config.xpReward);
                 if (activeMission === unlockedMission && unlockedMission < 40) unlockedMission++;
 
                 const portal = interactables.find(i => i.type === 'portal');
                 if (portal) { portal.active = true; portal.label = 'Exit Portal (F)'; }
-
-                addFloatingText(player.x, player.y - 40, 'DUNGEON CLEARED!', '#2ecc71', 24);
             }
             saveGame(); updateUI();
         }
@@ -569,127 +458,85 @@
             if (player.xp >= player.xpToNext) {
                 player.xp -= player.xpToNext;
                 player.level++;
-                player.maxHp += 15; player.hp = player.maxHp;
+                player.xpToNext = Math.round(player.xpToNext * 1.6); // Exponential scaling requiring ~3+ dungeons per level
+                recalcStats();
                 addFloatingText(player.x, player.y - 35, 'LEVEL UP!', '#2ecc71', 22);
             }
             saveGame(); updateUI();
         }
 
-        function openArmory() {
-            const container = document.getElementById('weapon-list');
+        function checkPlayerDeath(reason) {
+            if (player.hp <= 0) {
+                // Check Totem of Undying Special Item
+                if (equippedSpecialItem === 'totem') {
+                    equippedSpecialItem = null; // Consume Totem
+                    player.hp = 100;
+                    addFloatingText(player.x, player.y - 30, 'TOTEM SAVED YOU!', '#f1c40f', 24);
+                    saveGame(); updateUI();
+                    return;
+                }
+                showGameOver("DEFEATED", reason);
+            }
+        }
+
+        function openShop() {
+            const container = document.getElementById('shop-item-list');
             container.innerHTML = '';
-            WEAPONS.forEach((w, idx) => {
-                const isUnlocked = unlockedWeapons.includes(idx);
-                const isEquipped = activeWeaponIdx === idx;
+            ITEMS_DATABASE.forEach(item => {
+                const isOwned = ownedItems.includes(item.id);
                 const card = document.createElement('div');
-                card.className = `card ${isUnlocked ? '' : 'locked'}`;
+                card.className = `card ${isOwned ? 'locked' : ''}`;
                 card.innerHTML = `
-                    <h4 style="color:${w.color}">${w.name}</h4>
-                    <p>Type: ${w.type.toUpperCase()}</p>
-                    <p>Dmg: ${w.damage} | Speed: ${w.cd}s</p>
-                    <button ${isEquipped ? 'disabled' : ''} onclick="buyOrEquipWeapon(${idx})">
-                        ${isEquipped ? 'Equipped' : (isUnlocked ? 'Equip' : w.price + ' C')}
-                    </button>
+                    <h4>${item.name}</h4>
+                    <p style="color:#aaa;">${item.rarity}</p>
+                    <p>${item.desc}</p>
+                    <button ${isOwned ? 'disabled' : ''} onclick="buyItem(${item.id})">${isOwned ? 'Owned' : item.cost + ' C'}</button>
                 `;
                 container.appendChild(card);
             });
-            openModal('armory-modal');
+            openModal('shop-modal');
         }
 
-        function buyOrEquipWeapon(idx) {
-            if (unlockedWeapons.includes(idx)) {
-                activeWeaponIdx = idx;
-            } else if (coins >= WEAPONS[idx].price) {
-                coins -= WEAPONS[idx].price;
-                unlockedWeapons.push(idx);
-                activeWeaponIdx = idx;
+        function buyItem(id) {
+            const item = ITEMS_DATABASE.find(i => i.id === id);
+            if (item && coins >= item.cost && !ownedItems.includes(id)) {
+                coins -= item.cost;
+                ownedItems.push(id);
+                if (item.type === 'special') equippedSpecialItem = item.specialId;
+                recalcStats(); saveGame(); updateUI(); openShop();
             }
-            saveGame(); updateUI(); openArmory();
         }
 
         function openMissionBoard() {
             const container = document.getElementById('mission-list');
             container.innerHTML = '';
-            const startMap = (currentRegion * 10) + 1;
-            const endMap = startMap + 9;
-
-            for (let i = startMap; i <= endMap; i++) {
-                const m = MISSIONS[i];
+            for (let i = 1; i <= 40; i++) {
                 const isUnlocked = i <= unlockedMission;
                 const card = document.createElement('div');
                 card.className = `card ${isUnlocked ? '' : 'locked'}`;
                 card.innerHTML = `
-                    <h4>M${i}: ${m.name}</h4>
-                    <p>${m.boss ? 'BOSS BATTLE' : 'Mobs: ' + m.enemies}</p>
-                    <p style="color:#f1c40f;">Reward: ${m.reward} C</p>
-                    <button ${isUnlocked ? '' : 'disabled'} onclick="startMission(${i})">${isUnlocked ? 'Launch' : 'Locked'}</button>
+                    <h4>Map ${i}</h4>
+                    <button ${isUnlocked ? '' : 'disabled'} onclick="startMission(${i})">${isUnlocked ? 'Play' : 'Locked'}</button>
                 `;
                 container.appendChild(card);
             }
             openModal('mission-modal');
         }
 
-        function openBoatHarbor() {
-            const container = document.getElementById('region-list');
-            container.innerHTML = '';
-            REGIONS.forEach((r, idx) => {
-                const firstMapInRegion = (idx * 10) + 1;
-                const isUnlocked = unlockedMission >= firstMapInRegion;
-                const card = document.createElement('div');
-                card.className = `card ${isUnlocked ? '' : 'locked'}`;
-                card.innerHTML = `
-                    <h4 style="color:${r.color}">${r.name}</h4>
-                    <button ${isUnlocked ? '' : 'disabled'} onclick="travelToRegion(${idx})">${idx === currentRegion ? 'Current' : 'Sail'}</button>
-                `;
-                container.appendChild(card);
-            });
-            openModal('boat-modal');
-        }
-
-        function travelToRegion(idx) {
-            currentRegion = idx; closeModal('boat-modal'); saveGame(); updateUI();
-        }
-
-        function upgradeArmor() {
-            const cost = armorLevel * 80;
-            if (coins >= cost) {
-                coins -= cost; armorLevel++; player.maxHp += 40; player.hp += 40; saveGame(); updateUI();
-            }
-        }
-
-        function buyPotion() { if (coins >= 35) { coins -= 35; player.potions++; saveGame(); updateUI(); } }
         function usePotion() {
             if (player.potions > 0 && player.hp < player.maxHp) {
-                player.potions--; player.hp = Math.min(player.maxHp, player.hp + 60); saveGame(); updateUI();
+                player.potions--; player.hp = Math.min(player.maxHp, player.hp + 50); saveGame(); updateUI();
             }
         }
 
         function updateUI() {
             document.getElementById('coins').innerText = coins;
             document.getElementById('level-num').innerText = player.level;
+            document.getElementById('diff-ui').innerText = `MODE: ${selectedDifficulty.toUpperCase()}`;
             document.getElementById('hp-bar').style.width = `${Math.max(0, (player.hp / player.maxHp)) * 100}%`;
             document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
-            
-            document.getElementById('region-ui').innerText = `REGION: ${REGIONS[currentRegion].name.toUpperCase()}`;
-            document.getElementById('region-ui').style.color = REGIONS[currentRegion].color;
-            document.getElementById('mission-ui').innerText = locationState === 'lobby' ? "LOCATION: LOBBY HUB" : `MISSION ${activeMission}`;
-
-            const w = WEAPONS[activeWeaponIdx];
-            document.getElementById('hud-weapon').innerText = w.name;
-            document.getElementById('hud-weapon').style.color = w.color;
-            document.getElementById('hud-armor').innerText = `Lvl ${armorLevel}`;
-            
-            const enchantText = activeEnchantment ? activeEnchantment.name : 'None';
-            document.getElementById('hud-enchant').innerText = enchantText;
-            if (activeEnchantment) document.getElementById('hud-enchant').style.color = activeEnchantment.color;
-
-            document.getElementById('slot-weapon').innerText = w.name;
-            document.getElementById('slot-enchant').innerText = enchantText;
-            if (activeEnchantment) document.getElementById('slot-enchant').style.color = activeEnchantment.color;
-            
-            document.getElementById('slot-armor').innerText = `Lvl ${armorLevel} Armor`;
-            document.getElementById('inv-potions').innerText = `Health Potions: ${player.potions}`;
-            document.getElementById('armor-cost').innerText = armorLevel * 80;
+            document.getElementById('hud-special').innerText = equippedSpecialItem ? equippedSpecialItem.replace('_', ' ').toUpperCase() : 'None';
+            document.getElementById('hud-potion').innerText = `x${player.potions}`;
         }
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
@@ -705,16 +552,11 @@
             openModal('game-over');
         }
 
-        function returnToLobby() { 
-            closeModal('game-over'); 
-            setupLobby(); // Fully restores player back to 100% HP
-        }
-
+        function returnToLobby() { closeModal('game-over'); setupLobby(); }
         function addFloatingText(x, y, text, color, size) { floatingTexts.push({ x, y, text, color, size, life: 0.8 }); }
 
         function update(dt) {
             if (player.attackTimer > 0) player.attackTimer -= dt;
-            if (player.swingProgress > 0) player.swingProgress = Math.max(0, player.swingProgress - dt * 3);
 
             let mx = 0, my = 0;
             if (keys['w'] || keys['arrowup']) my -= 1;
@@ -722,71 +564,24 @@
             if (keys['a'] || keys['arrowleft']) mx -= 1;
             if (keys['d'] || keys['arrowright']) mx += 1;
 
-            if (mx !== 0 && my !== 0) { mx *= 0.7071; my *= 0.7071; }
             player.x = Math.max(player.radius, Math.min(curMapSize.width - player.radius, player.x + mx * player.speed * dt));
             player.y = Math.max(player.radius, Math.min(curMapSize.height - player.radius, player.y + my * player.speed * dt));
 
-            camera.x = player.x - canvas.width / 2;
-            camera.y = player.y - canvas.height / 2;
+            camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
             player.facingAngle = Math.atan2(mouse.y - (player.y - camera.y), mouse.x - (player.x - camera.x));
 
-            for (let i = playerProjectiles.length - 1; i >= 0; i--) {
-                const p = playerProjectiles[i];
-                p.x += p.vx * dt; p.y += p.vy * dt;
-                enemies.forEach(e => {
-                    if (Math.hypot(e.x - p.x, e.y - p.y) < e.radius + p.radius) {
-                        e.hp -= p.damage;
-                        addFloatingText(e.x, e.y - 15, p.damage.toString(), '#fff', e.isBoss ? 22 : 16);
-                        playerProjectiles.splice(i, 1);
-                        if (e.hp <= 0) killEnemy(e);
-                    }
-                });
-            }
-
             enemies.forEach(e => {
-                const dx = player.x - e.x, dy = player.y - e.y;
-                const dist = Math.hypot(dx, dy);
-
+                const dist = Math.hypot(player.x - e.x, player.y - e.y);
                 if (dist < e.aggroRange) {
-                    if (e.type === 'archer') {
-                        if (dist > 220) {
-                            e.x += (dx / dist) * e.speed * dt;
-                            e.y += (dy / dist) * e.speed * dt;
-                        }
-                        e.shootTimer += dt;
-                        if (e.shootTimer >= e.shootCooldown) {
-                            e.shootTimer = 0;
-                            const angle = Math.atan2(dy, dx);
-                            enemyProjectiles.push({
-                                x: e.x, y: e.y,
-                                vx: Math.cos(angle) * 220, vy: Math.sin(angle) * 220,
-                                damage: e.damage, radius: 5
-                            });
-                        }
-                    } else {
-                        e.x += (dx / dist) * e.speed * dt;
-                        e.y += (dy / dist) * e.speed * dt;
-
-                        if (dist < player.radius + e.radius) {
-                            player.hp -= e.damage * dt;
-                            updateUI();
-                            if (player.hp <= 0) showGameOver("DEFEATED", "Overwhelmed by enemies.");
-                        }
+                    e.x += ((player.x - e.x) / dist) * e.speed * dt;
+                    e.y += ((player.y - e.y) / dist) * e.speed * dt;
+                    if (dist < player.radius + e.radius) {
+                        player.hp -= e.damage * dt;
+                        updateUI();
+                        checkPlayerDeath("Melee enemy attack!");
                     }
                 }
             });
-
-            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
-                const p = enemyProjectiles[i];
-                p.x += p.vx * dt; p.y += p.vy * dt;
-                if (Math.hypot(player.x - p.x, player.y - p.y) < player.radius + p.radius) {
-                    player.hp -= p.damage;
-                    addFloatingText(player.x, player.y - 15, `-${p.damage}`, '#e74c3c', 16);
-                    enemyProjectiles.splice(i, 1);
-                    updateUI();
-                    if (player.hp <= 0) showGameOver("DEFEATED", "Hit by ranged projectiles.");
-                }
-            }
 
             floatingTexts.forEach((ft, i) => {
                 ft.y -= 20 * dt; ft.life -= dt;
@@ -802,73 +597,37 @@
             ctx.fillStyle = locationState === 'lobby' ? '#1c1c24' : REGIONS[currentRegion].bgTile;
             ctx.fillRect(0, 0, curMapSize.width, curMapSize.height);
 
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.03)"; ctx.lineWidth = 1;
-            for (let x = 0; x < curMapSize.width; x += 60) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, curMapSize.height); ctx.stroke(); }
-            for (let y = 0; y < curMapSize.height; y += 60) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(curMapSize.width, y); ctx.stroke(); }
+            // Structures (Desert Temple)
+            structures.forEach(s => {
+                if (s.type === 'desert_temple') {
+                    ctx.fillStyle = '#d35400'; ctx.fillRect(s.x, s.y, s.w, s.h);
+                    ctx.fillStyle = '#f39c12'; ctx.fillRect(s.x + 20, s.y + 20, s.w - 40, s.h - 40);
+                }
+            });
 
-            ctx.strokeStyle = REGIONS[currentRegion].color; ctx.lineWidth = 6;
-            ctx.strokeRect(0, 0, curMapSize.width, curMapSize.height);
-
+            // Interactables
             interactables.forEach(obj => {
                 ctx.save(); ctx.translate(obj.x, obj.y);
-                if (obj.type === 'armory') {
-                    ctx.fillStyle = '#34495e'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚔', 0, 5);
-                } else if (obj.type === 'enchant') {
+                if (obj.type === 'shop') {
                     ctx.fillStyle = '#9b59b6'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎰', 0, 5);
-                } else if (obj.type === 'upgrade') {
-                    ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#000'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚒', 0, 5);
-                } else if (obj.type === 'mission_board') {
-                    ctx.fillStyle = '#e67e22'; ctx.fillRect(-obj.radius, -obj.radius, obj.radius * 2, obj.radius * 2);
-                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('📜', 0, 5);
-                } else if (obj.type === 'boat') {
-                    ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⛵', 0, 6);
+                } else if (obj.type === 'tnt') {
+                    ctx.fillStyle = obj.primed ? '#e74c3c' : '#c0392b'; ctx.fillRect(-12, -12, 24, 24);
                 } else if (obj.type === 'chest') {
                     ctx.fillStyle = obj.opened ? '#7f8c8d' : '#f39c12'; ctx.fillRect(-15, -10, 30, 20);
-                } else if (obj.type === 'portal') {
-                    ctx.fillStyle = obj.active ? '#8e44ad' : '#34495e'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
                 }
                 ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(obj.label, 0, -obj.radius - 8);
                 ctx.restore();
             });
 
+            // Enemies & Player
             enemies.forEach(e => {
-                ctx.save(); ctx.translate(e.x, e.y);
-                ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, Math.PI * 2); ctx.fill();
-                if (e.isBoss) { ctx.strokeStyle = '#f1c40f'; ctx.lineWidth = 4; ctx.stroke(); }
-                ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(-20, -e.radius - 12, 40, 5);
-                ctx.fillStyle = '#e74c3c'; ctx.fillRect(-20, -e.radius - 12, (e.hp / e.maxHp) * 40, 5);
-                ctx.restore();
+                ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2); ctx.fill();
             });
 
-            playerProjectiles.forEach(p => {
-                ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
-            });
-            enemyProjectiles.forEach(p => {
-                ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
-            });
-
-            ctx.save(); ctx.translate(player.x, player.y);
-            ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(0, 0, player.radius, 0, Math.PI * 2); ctx.fill();
-
-            const currentW = WEAPONS[activeWeaponIdx];
-            if (player.swingProgress > 0 && currentW.type !== 'bow') {
-                ctx.strokeStyle = currentW.color; ctx.lineWidth = currentW.type === 'heavy' ? 8 : 4;
-                ctx.beginPath();
-                ctx.arc(0, 0, currentW.range, player.facingAngle - player.attackAngle/2, player.facingAngle + player.attackAngle/2);
-                ctx.stroke();
-            }
-
-            ctx.rotate(player.facingAngle);
-            ctx.fillStyle = currentW.color; ctx.fillRect(player.radius - 2, -3, 10, 6);
-            ctx.restore();
+            ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
 
             floatingTexts.forEach(ft => {
-                ctx.fillStyle = ft.color; ctx.font = `bold ${ft.size}px sans-serif`;
-                ctx.textAlign = 'center'; ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.fillStyle = ft.color; ctx.font = `bold ${ft.size}px sans-serif`; ctx.textAlign = 'center'; ctx.fillText(ft.text, ft.x, ft.y);
             });
 
             ctx.restore();
