@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungeon Explorer - 4 Realms</title>
+    <title>Dungeon Explorer - Extended Realms</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
@@ -56,6 +56,15 @@
         .card.locked { opacity: 0.4; filter: grayscale(1); }
         .card h4 { color: #3498db; margin-bottom: 4px; font-size: 14px; }
         .card p { font-size: 11px; color: #aaa; margin-bottom: 8px; }
+
+        .equipment-grid {
+            display: flex; gap: 15px; margin-bottom: 15px;
+        }
+        .equip-slot {
+            width: 120px; height: 100px; background: #252533; border: 2px dashed #f1c40f;
+            border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 5px;
+        }
         
         button {
             padding: 8px 16px; font-size: 13px; font-weight: bold;
@@ -87,22 +96,34 @@
             </div>
         </div>
 
-        <!-- Inventory Modal -->
+        <!-- Inventory Modal with Equipment Slots -->
         <div id="inv-modal" class="modal">
-            <h2>Inventory & Stats</h2>
+            <h2>Inventory & Equipment</h2>
+            <div class="equipment-grid">
+                <div class="equip-slot">
+                    <span style="font-size: 10px; color: #888;">WEAPON SLOT</span>
+                    <h4 id="slot-weapon" style="color: #3498db; font-size: 13px;">Lvl 1 Sword</h4>
+                </div>
+                <div class="equip-slot">
+                    <span style="font-size: 10px; color: #888;">ARMOR SLOT</span>
+                    <h4 id="slot-armor" style="color: #e74c3c; font-size: 13px;">Lvl 1 Armor</h4>
+                </div>
+            </div>
             <div class="grid-container">
-                <div class="card">
-                    <h4>Weapon Tier</h4>
-                    <p id="inv-weapon">Lvl 1 Sword (+0 Dmg)</p>
-                </div>
-                <div class="card">
-                    <h4>Armor Tier</h4>
-                    <p id="inv-armor">Lvl 1 Armor (+0 HP)</p>
-                </div>
                 <div class="card">
                     <h4>Potions</h4>
                     <p id="inv-potions">Health Potions: 0</p>
                     <button onclick="usePotion()">Use Potion</button>
+                </div>
+                <div class="card">
+                    <h4>Save Data</h4>
+                    <p>Save Progress</p>
+                    <button onclick="saveGame()">Save Game</button>
+                </div>
+                <div class="card">
+                    <h4>Clear Data</h4>
+                    <p>Reset All Progress</p>
+                    <button style="background: #e74c3c;" onclick="resetSave()">Reset Save</button>
                 </div>
             </div>
             <button onclick="toggleInventory()">Close (E)</button>
@@ -115,12 +136,12 @@
                 <div class="card">
                     <h4>Upgrade Sword</h4>
                     <p id="sword-upgrade-desc">+20 Damage</p>
-                    <button id="buy-sword-btn" onclick="upgradeSword()">Upgrade (<span id="sword-cost">50</span> Coins)</button>
+                    <button id="buy-sword-btn" onclick="upgradeSword()">Upgrade (<span id="sword-cost">60</span> Coins)</button>
                 </div>
                 <div class="card">
                     <h4>Upgrade Armor</h4>
                     <p id="armor-upgrade-desc">+40 Max HP</p>
-                    <button id="buy-armor-btn" onclick="upgradeArmor()">Upgrade (<span id="armor-cost">50</span> Coins)</button>
+                    <button id="buy-armor-btn" onclick="upgradeArmor()">Upgrade (<span id="armor-cost">60</span> Coins)</button>
                 </div>
                 <div class="card">
                     <h4>Health Potion</h4>
@@ -134,7 +155,7 @@
         <!-- Mission Select Board -->
         <div id="mission-modal" class="modal">
             <h2>Select Mission</h2>
-            <p style="margin-bottom: 12px; color: #aaa; font-size: 13px;">Explore the map, loot chests, and slay all targets to win!</p>
+            <p style="margin-bottom: 12px; color: #aaa; font-size: 13px;">Explore the map, slay targets, and find the portal exit to leave!</p>
             <div id="mission-list" class="grid-container"></div>
             <button onclick="closeModal('mission-modal')">Cancel</button>
         </div>
@@ -147,9 +168,9 @@
             <button onclick="closeModal('boat-modal')">Stay Here</button>
         </div>
 
-        <!-- Game Over / Mission Complete -->
+        <!-- Game Over Modal -->
         <div id="game-over" class="modal">
-            <h2 id="go-title">MISSION COMPLETE</h2>
+            <h2 id="go-title">DEFEATED</h2>
             <p id="go-desc" style="margin-bottom: 20px; color: #aaa;"></p>
             <button onclick="returnToLobby()">Return to Lobby</button>
         </div>
@@ -168,6 +189,7 @@
         let currentRegion = 0; // 0: Green, 1: Desert, 2: Volcano, 3: Ice
         let unlockedMission = 1; // Highest mission unlocked (1 to 10)
         let activeMission = 0;
+        let missionCleared = false;
 
         let keys = {};
         let mouse = { x: 400, y: 300 };
@@ -189,7 +211,7 @@
 
         // Regions Metadata
         const REGIONS = [
-            { name: "Green Realm", color: "#27ae60", bgTile: "#1e3323", missions: [1, 2, 3] },
+            { name: "Green Realm", color: "#2ecc71", bgTile: "#1e3323", missions: [1, 2, 3] },
             { name: "Desert Realm", color: "#f39c12", bgTile: "#3d3019", missions: [4, 5] },
             { name: "Volcano Realm", color: "#e74c3c", bgTile: "#361919", missions: [6, 7, 8] },
             { name: "Ice Realm", color: "#3498db", bgTile: "#192d3d", missions: [9, 10] }
@@ -211,11 +233,49 @@
 
         // World Entities
         let enemies = [];
+        let projectiles = [];
         let particles = [];
         let floatingTexts = [];
         let interactables = [];
         let curMapSize = { width: 1200, height: 900 };
         const camera = { x: 0, y: 0 };
+
+        // Save & Load Functions (Local Storage)
+        function saveGame() {
+            const data = {
+                coins, unlockedMission, currentRegion,
+                swordLevel, armorLevel,
+                playerLevel: player.level, playerXP: player.xp, playerXpToNext: player.xpToNext,
+                potions: player.potions
+            };
+            localStorage.setItem('dungeon_crawler_save', JSON.stringify(data));
+            addFloatingText(player.x, player.y - 30, 'Game Saved!', '#2ecc71', 20);
+        }
+
+        function loadGame() {
+            const raw = localStorage.getItem('dungeon_crawler_save');
+            if (!raw) return;
+            try {
+                const data = JSON.parse(raw);
+                coins = data.coins ?? coins;
+                unlockedMission = data.unlockedMission ?? unlockedMission;
+                currentRegion = data.currentRegion ?? currentRegion;
+                swordLevel = data.swordLevel ?? swordLevel;
+                armorLevel = data.armorLevel ?? armorLevel;
+                player.level = data.playerLevel ?? player.level;
+                player.xp = data.playerXP ?? player.xp;
+                player.xpToNext = data.playerXpToNext ?? player.xpToNext;
+                player.potions = data.potions ?? player.potions;
+                
+                player.maxHp = 100 + ((armorLevel - 1) * 40) + ((player.level - 1) * 15);
+                player.hp = player.maxHp;
+            } catch(e) { console.error("Save load failed", e); }
+        }
+
+        function resetSave() {
+            localStorage.removeItem('dungeon_crawler_save');
+            location.reload();
+        }
 
         // Inputs
         window.addEventListener('keydown', e => {
@@ -237,7 +297,8 @@
             locationState = 'lobby';
             curMapSize = { width: 1200, height: 900 };
             player.x = 600; player.y = 450;
-            enemies = []; interactables = [];
+            enemies = []; projectiles = []; interactables = [];
+            missionCleared = false;
 
             // Spawn Hub Stations
             interactables.push({ x: 350, y: 350, radius: 25, type: 'upgrade', label: 'Blacksmith (F)' });
@@ -254,12 +315,13 @@
             const config = MISSIONS[mNum];
             locationState = 'dungeon';
             curMapSize = config.size;
+            missionCleared = false;
             closeModal('mission-modal');
 
             player.x = 150; player.y = 150;
-            enemies = []; interactables = [];
+            enemies = []; projectiles = []; interactables = [];
 
-            // Add Chests Spread Out across map
+            // Add Chests Spread Out
             const chestCount = 3 + Math.floor(mNum / 2);
             for (let i = 0; i < chestCount; i++) {
                 interactables.push({
@@ -269,19 +331,31 @@
                 });
             }
 
-            // Scatter Enemies Across Large Map (For Exploration Mechanics)
+            // Spawn Exit Portal (Hidden / Inactive until cleared)
+            interactables.push({
+                x: curMapSize.width - 150,
+                y: curMapSize.height - 150,
+                radius: 28, type: 'portal', active: false, label: 'Exit Portal (Locked)'
+            });
+
+            // Scatter Enemies with Mobs Types (Melee vs Ranged Archers)
             for (let i = 0; i < config.enemies; i++) {
                 let ex = Math.random() * (curMapSize.width - 400) + 300;
                 let ey = Math.random() * (curMapSize.height - 400) + 300;
+                const isArcher = Math.random() < 0.4; // 40% Archer Mobs
+
                 enemies.push({
                     x: ex, y: ey, radius: 16,
-                    speed: 70 + (config.difficulty * 15),
-                    hp: Math.round(40 * config.difficulty),
-                    maxHp: Math.round(40 * config.difficulty),
+                    type: isArcher ? 'archer' : 'brawler',
+                    speed: isArcher ? 60 : (75 + (config.difficulty * 10)),
+                    hp: Math.round((isArcher ? 30 : 45) * config.difficulty),
+                    maxHp: Math.round((isArcher ? 30 : 45) * config.difficulty),
                     damage: Math.round(8 * config.difficulty),
-                    color: REGIONS[config.region].color,
+                    color: isArcher ? '#9b59b6' : REGIONS[config.region].color,
                     xpValue: Math.round(25 * config.difficulty),
-                    aggroRange: 260 // Only attacks when player approaches!
+                    aggroRange: 280,
+                    shootTimer: 0,
+                    shootCooldown: 2.0
                 });
             }
             updateUI();
@@ -298,7 +372,11 @@
                         const drop = 40 + (activeMission * 25);
                         coins += drop;
                         addFloatingText(obj.x, obj.y - 20, `+${drop} Coins!`, '#f1c40f', 20);
+                        saveGame();
                         updateUI();
+                    }
+                    if (obj.type === 'portal' && obj.active) {
+                        returnToLobby();
                     }
                 }
             });
@@ -328,16 +406,26 @@
             addFloatingText(e.x, e.y - 25, `+${rewardCoins} Coins`, '#f1c40f', 15);
             enemies = enemies.filter(enemy => enemy !== e);
 
-            if (locationState === 'dungeon' && enemies.length === 0) {
+            // Trigger Portal Activation (No auto forced teleport)
+            if (locationState === 'dungeon' && enemies.length === 0 && !missionCleared) {
+                missionCleared = true;
                 const config = MISSIONS[activeMission];
                 coins += config.reward;
-                
-                // Unlock Next Mission & Region Check
+
                 if (activeMission === unlockedMission && unlockedMission < 10) {
                     unlockedMission++;
                 }
 
-                showGameOver("MISSION CLEAR!", `Earned ${config.reward} Bonus Coins! Next Mission Unlocked.`);
+                // Activate Portal
+                const portal = interactables.find(i => i.type === 'portal');
+                if (portal) {
+                    portal.active = true;
+                    portal.label = 'Exit Portal (F)';
+                }
+
+                addFloatingText(player.x, player.y - 40, 'ALL ENEMIES DEFEATED!', '#2ecc71', 24);
+                addFloatingText(player.x, player.y - 15, 'Find the Portal to Exit!', '#f1c40f', 18);
+                saveGame();
             }
             updateUI();
         }
@@ -353,14 +441,13 @@
             updateUI();
         }
 
-        // Dynamic Modals Rendering
         function openMissionBoard() {
             const container = document.getElementById('mission-list');
             container.innerHTML = '';
 
             for (let i = 1; i <= 10; i++) {
                 const m = MISSIONS[i];
-                if (m.region !== currentRegion) continue; // Only show current region missions
+                if (m.region !== currentRegion) continue;
 
                 const isUnlocked = i <= unlockedMission;
                 const card = document.createElement('div');
@@ -398,7 +485,8 @@
         function travelToRegion(idx) {
             currentRegion = idx;
             closeModal('boat-modal');
-            addFloatingText(player.x, player.y - 30, `Sailed to ${REGIONS[idx].name}!`, '#3498db', 22);
+            addFloatingText(player.x, player.y - 30, `Sailing to ${REGIONS[idx].name}!`, '#3498db', 22);
+            saveGame();
             updateUI();
         }
 
@@ -407,6 +495,7 @@
             if (coins >= cost) {
                 coins -= cost;
                 swordLevel++;
+                saveGame();
                 updateUI();
             }
         }
@@ -418,13 +507,14 @@
                 armorLevel++;
                 player.maxHp += 40;
                 player.hp += 40;
+                saveGame();
                 updateUI();
             }
         }
 
         function buyPotion() {
             if (coins >= 25) {
-                coins -= 25; player.potions++; updateUI();
+                coins -= 25; player.potions++; saveGame(); updateUI();
             }
         }
 
@@ -432,6 +522,7 @@
             if (player.potions > 0 && player.hp < player.maxHp) {
                 player.potions--;
                 player.hp = Math.min(player.maxHp, player.hp + 60);
+                saveGame();
                 updateUI();
             }
         }
@@ -446,9 +537,9 @@
             document.getElementById('region-ui').style.color = REGIONS[currentRegion].color;
             document.getElementById('mission-ui').innerText = locationState === 'lobby' ? "LOCATION: LOBBY HUB" : `MISSION ${activeMission}`;
 
-            // Inventory & Upgrade UI Elements
-            document.getElementById('inv-weapon').innerText = `Lvl ${swordLevel} Sword (+${(swordLevel-1)*20} Dmg)`;
-            document.getElementById('inv-armor').innerText = `Lvl ${armorLevel} Armor (+${(armorLevel-1)*40} HP)`;
+            // Inventory Equipment UI
+            document.getElementById('slot-weapon').innerText = `Lvl ${swordLevel} Sword (+${(swordLevel-1)*20} Dmg)`;
+            document.getElementById('slot-armor').innerText = `Lvl ${armorLevel} Armor (+${(armorLevel-1)*40} HP)`;
             document.getElementById('inv-potions').innerText = `Health Potions: ${player.potions}`;
 
             document.getElementById('sword-cost').innerText = swordLevel * 60;
@@ -480,7 +571,7 @@
         function update(dt) {
             if (player.attackTimer > 0) player.attackTimer -= dt;
 
-            // Movement
+            // Player Movement
             let mx = 0, my = 0;
             if (keys['w'] || keys['arrowup']) my -= 1;
             if (keys['s'] || keys['arrowdown']) my += 1;
@@ -497,22 +588,58 @@
 
             player.facingAngle = Math.atan2(mouse.y - (player.y - camera.y), mouse.x - (player.x - camera.x));
 
-            // Enemies AI (Exploration Trigger: Enemies only activate when player approaches)
+            // Enemy AI & Ranged Attack Behavior
             enemies.forEach(e => {
                 const dx = player.x - e.x, dy = player.y - e.y;
                 const dist = Math.hypot(dx, dy);
 
                 if (dist < e.aggroRange) {
-                    e.x += (dx / dist) * e.speed * dt;
-                    e.y += (dy / dist) * e.speed * dt;
-                }
+                    if (e.type === 'archer') {
+                        // Keep distance and shoot arrows
+                        if (dist > 180) {
+                            e.x += (dx / dist) * e.speed * dt;
+                            e.y += (dy / dist) * e.speed * dt;
+                        }
+                        e.shootTimer += dt;
+                        if (e.shootTimer >= e.shootCooldown) {
+                            e.shootTimer = 0;
+                            const angle = Math.atan2(dy, dx);
+                            projectiles.push({
+                                x: e.x, y: e.y,
+                                vx: Math.cos(angle) * 240,
+                                vy: Math.sin(angle) * 240,
+                                damage: e.damage, radius: 4
+                            });
+                        }
+                    } else {
+                        // Standard Melee Brawler
+                        e.x += (dx / dist) * e.speed * dt;
+                        e.y += (dy / dist) * e.speed * dt;
 
-                if (dist < player.radius + e.radius) {
-                    player.hp -= e.damage * dt;
-                    updateUI();
-                    if (player.hp <= 0) showGameOver("DEFEATED", "You perished during exploration.");
+                        if (dist < player.radius + e.radius) {
+                            player.hp -= e.damage * dt;
+                            updateUI();
+                            if (player.hp <= 0) showGameOver("DEFEATED", "You perished in battle.");
+                        }
+                    }
                 }
             });
+
+            // Projectile Physics (Arrows)
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+
+                // Collision with Player
+                if (Math.hypot(player.x - p.x, player.y - p.y) < player.radius + p.radius) {
+                    player.hp -= p.damage;
+                    addFloatingText(player.x, player.y - 15, `-${p.damage}`, '#e74c3c', 16);
+                    projectiles.splice(i, 1);
+                    updateUI();
+                    if (player.hp <= 0) showGameOver("DEFEATED", "Killed by an enemy arrow.");
+                }
+            }
 
             // Text Animations
             floatingTexts.forEach((ft, i) => {
@@ -526,7 +653,7 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 1. Biome Ground Colors
+            // Ground Floor
             ctx.fillStyle = locationState === 'lobby' ? '#1c1c24' : REGIONS[currentRegion].bgTile;
             ctx.fillRect(0, 0, curMapSize.width, curMapSize.height);
 
@@ -535,11 +662,12 @@
             ctx.lineWidth = 6;
             ctx.strokeRect(0, 0, curMapSize.width, curMapSize.height);
 
-            // 2. Interactable Stations / Objects
+            // Interactable Stations / Objects
             interactables.forEach(obj => {
                 ctx.fillStyle = obj.type === 'upgrade' ? '#f39c12' :
                                 obj.type === 'mission_board' ? '#2ecc71' :
                                 obj.type === 'boat' ? '#3498db' :
+                                obj.type === 'portal' ? (obj.active ? '#9b59b6' : '#444') :
                                 (obj.opened ? '#555' : '#f1c40f');
                 
                 ctx.fillRect(obj.x - obj.radius, obj.y - obj.radius, obj.radius * 2, obj.radius * 2);
@@ -548,17 +676,36 @@
                 ctx.fillText(obj.label, obj.x - 30, obj.y - obj.radius - 6);
             });
 
-            // 3. Enemies
+            // Enemies (Distinct Shapes for Archer Mobs)
             enemies.forEach(e => {
                 ctx.fillStyle = e.color;
-                ctx.fillRect(e.x - e.radius, e.y - e.radius, e.radius * 2, e.radius * 2);
+                if (e.type === 'archer') {
+                    // Triangle for Archer
+                    ctx.beginPath();
+                    ctx.moveTo(e.x, e.y - e.radius);
+                    ctx.lineTo(e.x - e.radius, e.y + e.radius);
+                    ctx.lineTo(e.x + e.radius, e.y + e.radius);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    // Square for Melee
+                    ctx.fillRect(e.x - e.radius, e.y - e.radius, e.radius * 2, e.radius * 2);
+                }
                 
                 // Health bar above enemy
                 ctx.fillStyle = '#000'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, 24, 4);
                 ctx.fillStyle = '#e74c3c'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, (e.hp / e.maxHp) * 24, 4);
             });
 
-            // 4. Hero Player
+            // Projectiles (Arrows)
+            ctx.fillStyle = '#f1c40f';
+            projectiles.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Hero Player
             ctx.fillStyle = '#3498db';
             ctx.fillRect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2);
 
@@ -571,7 +718,7 @@
                 ctx.stroke();
             }
 
-            // 5. Floating Text
+            // Floating Text
             floatingTexts.forEach(ft => {
                 ctx.fillStyle = ft.color;
                 ctx.font = `bold ${ft.size}px Arial`;
@@ -589,6 +736,7 @@
             requestAnimationFrame(gameLoop);
         }
 
+        loadGame();
         setupLobby();
         lastTime = performance.now();
         requestAnimationFrame(gameLoop);
