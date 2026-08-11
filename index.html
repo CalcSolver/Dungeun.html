@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Crawler</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #111116;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 3px solid #3a3a4c;
+        }
+        canvas {
+            display: block;
+            background-color: #1d1d26;
+            cursor: crosshair;
+        }
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        .bar-container {
+            width: 200px;
+            height: 22px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #555;
+            border-radius: 11px;
+            overflow: hidden;
+            position: relative;
+        }
+        .hp-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+            transition: width 0.1s ease;
+        }
+        .xp-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            transition: width 0.1s ease;
+        }
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 15, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        #game-over h1 {
+            font-size: 48px;
+            color: #e74c3c;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        #game-over p {
+            font-size: 20px;
+            margin-bottom: 25px;
+            color: #aaa;
+        }
+        button {
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            pointer-events: auto;
+        }
+        button:hover {
+            background: #2980b9;
+            transform: scale(1.05);
+        }
+        .controls-hint {
+            margin-top: 15px;
+            color: #888;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <div>
+                <div style="font-size: 12px; margin-bottom: 2px;">HEALTH</div>
+                <div class="bar-container"><div id="hp-bar" class="hp-bar"></div></div>
+                <div style="font-size: 12px; margin-top: 6px; margin-bottom: 2px;">LEVEL <span id="level-num">1</span></div>
+                <div class="bar-container" style="height: 10px;"><div id="xp-bar" class="xp-bar"></div></div>
+            </div>
+            <div style="text-align: right;">
+                <div>KILLS: <span id="score" style="color: #f1c40f;">0</span></div>
+                <div style="font-size: 14px; color: #aaa; margin-top: 5px;">WAVE <span id="wave">1</span></div>
+            </div>
+        </div>
+        
+        <div id="game-over">
+            <h1 id="go-title">DUNGEON CRAWLER</h1>
+            <p id="go-desc">Defeat enemies and survive!</p>
+            <button id="start-btn" onclick="startGame()">PLAY GAME</button>
+        </div>
+    </div>
+
+    <div class="controls-hint">
+        <strong>Controls:</strong> WASD / Arrows = Move | Left Click / Space = Attack | Aim with Mouse
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // State
+        let gameState = 'menu'; // 'menu', 'playing', 'gameover'
+        let keys = {};
+        let mouse = { x: 400, y: 300 };
+        let lastTime = 0;
+        let score = 0;
+        let wave = 1;
+        let enemiesToSpawn = 5;
+
+        // Player setup
+        const player = {
+            x: 400,
+            y: 300,
+            radius: 16,
+            speed: 200,
+            maxHp: 100,
+            hp: 100,
+            level: 1,
+            xp: 0,
+            xpToNext: 100,
+            attackRadius: 55,
+            attackAngle: Math.PI / 2.2,
+            attackCooldown: 0.35,
+            attackTimer: 0,
+            isAttacking: false,
+            swingProgress: 0,
+            facingAngle: 0,
+            damage: 35
+        };
+
+        // Entities
+        let enemies = [];
+        let particles = [];
+        let floatingTexts = [];
+        let healthPacks = [];
+
+        // Camera / Map Setup
+        const mapSize = { width: 1600, height: 1200 };
+        const camera = { x: 0, y: 0 };
+
+        // Grid map decoration (blocky aesthetic)
+        const gridTiles = [];
+        const tileSize = 80;
+        for (let x = 0; x < mapSize.width; x += tileSize) {
+            for (let y = 0; y < mapSize.height; y += tileSize) {
+                const shade = Math.floor(Math.random() * 15);
+                gridTiles.push({
+                    x, y,
+                    color: `rgb(${30 + shade}, ${30 + shade}, ${40 + shade})`,
+                    detail: Math.random() > 0.8
+                });
+            }
+        }
+
+        // Input Handlers
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+        canvas.addEventListener('mousedown', e => {
+            if (e.button === 0) performAttack();
+        });
+
+        function performAttack() {
+            if (gameState !== 'playing' || player.attackTimer > 0) return;
+            player.isAttacking = true;
+            player.attackTimer = player.attackCooldown;
+            player.swingProgress = 0;
+
+            // Check hit on enemies
+            enemies.forEach(e => {
+                const dx = e.x - player.x;
+                const dy = e.y - player.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist <= player.attackRadius + e.radius) {
+                    const angleToEnemy = Math.atan2(dy, dx);
+                    let angleDiff = angleToEnemy - player.facingAngle;
+
+                    // Normalize angle
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+
+                    if (Math.abs(angleDiff) <= player.attackAngle / 2 + 0.3) {
+                        // Knockback & Damage
+                        const kbStrength = 180;
+                        e.vx += Math.cos(angleToEnemy) * kbStrength;
+                        e.vy += Math.sin(angleToEnemy) * kbStrength;
+                        
+                        const isCrit = Math.random() < 0.2;
+                        const dmg = isCrit ? Math.round(player.damage * 1.5) : player.damage;
+                        e.hp -= dmg;
+
+                        addFloatingText(e.x, e.y - 15, dmg.toString(), isCrit ? '#f1c40f' : '#fff', isCrit ? 22 : 16);
+                        createParticles(e.x, e.y, e.color, 6);
+
+                        if (e.hp <= 0) {
+                            killEnemy(e);
+                        }
+                    }
+                }
+            });
+        }
+
+        function killEnemy(e) {
+            score++;
+            player.xp += e.xpValue;
+            createParticles(e.x, e.y, e.color, 15);
+            
+            // Drop health pack chance
+            if (Math.random() < 0.2) {
+                healthPacks.push({ x: e.x, y: e.y, radius: 10 });
+            }
+
+            // Level up check
+            if (player.xp >= player.xpToNext) {
+                player.xp -= player.xpToNext;
+                player.level++;
+                player.xpToNext = Math.round(player.xpToNext * 1.4);
+                player.maxHp += 15;
+                player.hp = player.maxHp;
+                player.damage += 8;
+                addFloatingText(player.x, player.y - 30, 'LEVEL UP!', '#2ecc71', 24);
+            }
+
+            document.getElementById('score').innerText = score;
+            document.getElementById('level-num').innerText = player.level;
+        }
+
+        function spawnEnemy() {
+            // Spawn around player off-screen
+            let x, y, dist;
+            do {
+                x = Math.random() * mapSize.width;
+                y = Math.random() * mapSize.height;
+                dist = Math.hypot(x - player.x, y - player.y);
+            } while (dist < 400);
+
+            const type = Math.random();
+            let enemy;
+
+            if (type < 0.6) {
+                // Zombie (Standard)
+                enemy = {
+                    x, y, vx: 0, vy: 0, radius: 15, speed: 100, hp: 60, maxHp: 60,
+                    damage: 12, color: '#27ae60', xpValue: 35, attackCooldown: 1, attackTimer: 0
+                };
+            } else if (type < 0.85) {
+                // Runner (Fast, Low HP)
+                enemy = {
+                    x, y, vx: 0, vy: 0, radius: 12, speed: 170, hp: 35, maxHp: 35,
+                    damage: 8, color: '#e67e22', xpValue: 45, attackCooldown: 0.6, attackTimer: 0
+                };
+            } else {
+                // Brute (Slow, High HP, High Damage)
+                enemy = {
+                    x, y, vx: 0, vy: 0, radius: 24, speed: 65, hp: 160, maxHp: 160,
+                    damage: 25, color: '#8e44ad', xpValue: 90, attackCooldown: 1.5, attackTimer: 0
+                };
+            }
+            enemies.push(enemy);
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 120 + 30;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 2,
+                    color,
+                    life: 0.3 + Math.random() * 0.2
+                });
+            }
+        }
+
+        function addFloatingText(x, y, text, color, size) {
+            floatingTexts.push({ x, y, text, color, size, life: 0.8, maxLife: 0.8 });
+        }
+
+        function startGame() {
+            player.x = mapSize.width / 2;
+            player.y = mapSize.height / 2;
+            player.hp = 100;
+            player.maxHp = 100;
+            player.level = 1;
+            player.xp = 0;
+            player.xpToNext = 100;
+            player.damage = 35;
+            score = 0;
+            wave = 1;
+            enemiesToSpawn = 6;
+            enemies = [];
+            particles = [];
+            floatingTexts = [];
+            healthPacks = [];
+
+            document.getElementById('score').innerText = '0';
+            document.getElementById('level-num').innerText = '1';
+            document.getElementById('wave').innerText = '1';
+            document.getElementById('game-over').style.display = 'none';
+
+            gameState = 'playing';
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameState = 'gameover';
+            document.getElementById('go-title').innerText = 'GAME OVER';
+            document.getElementById('go-desc').innerText = `You survived ${wave - 1} waves and defeated ${score} enemies!`;
+            document.getElementById('start-btn').innerText = 'TRY AGAIN';
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        function update(dt) {
+            if (gameState !== 'playing') return;
+
+            // Attack cooldowns
+            if (player.attackTimer > 0) {
+                player.attackTimer -= dt;
+                player.swingProgress = 1 - (player.attackTimer / player.attackCooldown);
+                if (player.attackTimer <= 0) player.isAttacking = false;
+            }
+
+            // Movement Input
+            let moveX = 0;
+            let moveY = 0;
+            if (keys['w'] || keys['arrowup']) moveY -= 1;
+            if (keys['s'] || keys['arrowdown']) moveY += 1;
+            if (keys['a'] || keys['arrowleft']) moveX -= 1;
+            if (keys['d'] || keys['arrowright']) moveX += 1;
+
+            if (keys[' ']) performAttack();
+
+            // Normalize vector
+            if (moveX !== 0 && moveY !== 0) {
+                moveX *= 0.7071;
+                moveY *= 0.7071;
+            }
+
+            player.x = Math.max(player.radius, Math.min(mapSize.width - player.radius, player.x + moveX * player.speed * dt));
+            player.y = Math.max(player.radius, Math.min(mapSize.height - player.radius, player.y + moveY * player.speed * dt));
+
+            // Camera follow
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+            camera.x = Math.max(0, Math.min(mapSize.width - canvas.width, camera.x));
+            camera.y = Math.max(0, Math.min(mapSize.height - canvas.height, camera.y));
+
+            // Face cursor
+            const screenPlayerX = player.x - camera.x;
+            const screenPlayerY = player.y - camera.y;
+            player.facingAngle = Math.atan2(mouse.y - screenPlayerY, mouse.x - screenPlayerX);
+
+            // Wave spawner system
+            if (enemies.length === 0 && enemiesToSpawn <= 0) {
+                wave++;
+                enemiesToSpawn = 5 + wave * 3;
+                document.getElementById('wave').innerText = wave;
+                addFloatingText(player.x, player.y - 40, `WAVE ${wave}`, '#e74c3c', 28);
+            }
+
+            if (enemiesToSpawn > 0 && enemies.length < 15) {
+                spawnEnemy();
+                enemiesToSpawn--;
+            }
+
+            // Health Pack Collision
+            for (let i = healthPacks.length - 1; i >= 0; i--) {
+                const hp = healthPacks[i];
+                if (Math.hypot(player.x - hp.x, player.y - hp.y) < player.radius + hp.radius) {
+                    player.hp = Math.min(player.maxHp, player.hp + 30);
+                    addFloatingText(player.x, player.y - 20, '+30 HP', '#2ecc71', 18);
+                    healthPacks.splice(i, 1);
+                }
+            }
+
+            // Update Enemies
+            enemies.forEach(e => {
+                // Apply friction to knockback velocity
+                e.x += e.vx * dt;
+                e.y += e.vy * dt;
+                e.vx *= 0.88;
+                e.vy *= 0.88;
+
+                // Move towards player
+                const dx = player.x - e.x;
+                const dy = player.y - e.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 0) {
+                    e.x += (dx / dist) * e.speed * dt;
+                    e.y += (dy / dist) * e.speed * dt;
+                }
+
+                // Enemy attack player
+                if (e.attackTimer > 0) e.attackTimer -= dt;
+                if (dist < player.radius + e.radius && e.attackTimer <= 0) {
+                    player.hp -= e.damage;
+                    e.attackTimer = e.attackCooldown;
+                    createParticles(player.x, player.y, '#e74c3c', 8);
+                    addFloatingText(player.x, player.y - 15, `-${e.damage}`, '#e74c3c', 18);
+
+                    if (player.hp <= 0) {
+                        player.hp = 0;
+                        gameOver();
+                    }
+                }
+            });
+
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= dt;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // Update Floating Text
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y -= 30 * dt;
+                ft.life -= dt;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            // UI Bar Updates
+            document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+            document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // 1. Draw Map Tiles
+            gridTiles.forEach(tile => {
+                if (tile.x + tileSize >= camera.x && tile.x <= camera.x + canvas.width &&
+                    tile.y + tileSize >= camera.y && tile.y <= camera.y + canvas.height) {
+                    ctx.fillStyle = tile.color;
+                    ctx.fillRect(tile.x, tile.y, tileSize - 2, tileSize - 2);
+
+                    if (tile.detail) {
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+                        ctx.fillRect(tile.x + 10, tile.y + 10, 20, 20);
+                    }
+                }
+            });
+
+            // Map Bounds Border
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, mapSize.width, mapSize.height);
+
+            // 2. Health Packs
+            healthPacks.forEach(hp => {
+                ctx.fillStyle = '#2ecc71';
+                ctx.beginPath();
+                ctx.arc(hp.x, hp.y, hp.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(hp.x - 2, hp.y - 6, 4, 12);
+                ctx.fillRect(hp.x - 6, hp.y - 2, 12, 4);
+            });
+
+            // 3. Enemies
+            enemies.forEach(e => {
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath();
+                ctx.ellipse(e.x, e.y + e.radius - 2, e.radius, e.radius * 0.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Body (Blocky voxel-ish look)
+                ctx.fillStyle = e.color;
+                ctx.fillRect(e.x - e.radius, e.y - e.radius, e.radius * 2, e.radius * 2);
+
+                // Eyes
+                ctx.fillStyle = '#fff';
+                const eyeOffset = e.radius * 0.4;
+                ctx.fillRect(e.x - eyeOffset - 2, e.y - eyeOffset - 2, 5, 5);
+                ctx.fillRect(e.x + eyeOffset - 3, e.y - eyeOffset - 2, 5, 5);
+
+                // Health bar
+                if (e.hp < e.maxHp) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                    ctx.fillRect(e.x - 15, e.y - e.radius - 12, 30, 5);
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.fillRect(e.x - 15, e.y - e.radius - 12, (e.hp / e.maxHp) * 30, 5);
+                }
+            });
+
+            // 4. Player
+            // Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(player.x, player.y + player.radius - 2, player.radius, player.radius * 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Player body
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.facingAngle);
+
+            // Blocky Hero Body
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(-player.radius, -player.radius, player.radius * 2, player.radius * 2);
+
+            // Eyes
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillRect(4, -8, 5, 5);
+            ctx.fillRect(4, 3, 5, 5);
+
+            // Weapon / Attack Animation (Arc Swing)
+            const swordLen = 35;
+            if (player.isAttacking) {
+                const startAngle = -player.attackAngle / 2;
+                const currentAngle = startAngle + (player.attackAngle * player.swingProgress);
+
+                ctx.save();
+                ctx.rotate(currentAngle);
+                ctx.fillStyle = '#ecf0f1';
+                ctx.fillRect(10, -3, swordLen, 6);
+                
+                // Slash trail effect
+                ctx.fillStyle = 'rgba(236, 240, 241, 0.4)';
+                ctx.beginPath();
+                ctx.arc(0, 0, player.attackRadius, -0.4, 0.4);
+                ctx.lineTo(0, 0);
+                ctx.fill();
+                ctx.restore();
+            } else {
+                // Idle Sword Position
+                ctx.fillStyle = '#bdc3c7';
+                ctx.fillRect(10, 8, swordLen - 5, 5);
+            }
+
+            ctx.restore();
+
+            // 5. Particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.life / 0.5);
+                ctx.fillRect(p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 2);
+                ctx.globalAlpha = 1;
+            });
+
+            // 6. Floating Damage Text
+            floatingTexts.forEach(ft => {
+                ctx.fillStyle = ft.color;
+                ctx.font = `bold ${ft.size}px Arial`;
+                ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
+                ctx.fillText(ft.text, ft.x - 10, ft.y);
+                ctx.globalAlpha = 1;
+            });
+
+            ctx.restore();
+        }
+
+        function gameLoop(time) {
+            const dt = Math.min((time - lastTime) / 1000, 0.1);
+            lastTime = time;
+
+            update(dt);
+            draw();
+
+            if (gameState === 'playing') {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+    </script>
+</body>
+</html>
