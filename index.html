@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungeon Explorer - Apocalypse & Temples</title>
+    <title>Dungeon Explorer - Apocalypse & Temples Fixed</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
@@ -61,6 +61,17 @@
         .card.locked { opacity: 0.4; filter: grayscale(1); }
         .card h4 { color: #3498db; margin-bottom: 4px; font-size: 12px; }
         .card p { font-size: 10px; color: #aaa; margin-bottom: 6px; }
+
+        .gacha-box {
+            background: #151520; border: 3px double #9b59b6; border-radius: 12px;
+            padding: 20px; text-align: center; width: 320px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.3);
+            margin-bottom: 15px;
+        }
+        .gacha-display {
+            font-size: 18px; font-weight: bold; height: 50px; display: flex;
+            align-items: center; justify-content: center; background: #0a0a10;
+            border-radius: 6px; border: 1px solid #333; margin: 10px 0; color: #f1c40f;
+        }
 
         .diff-btn {
             width: 180px; padding: 12px; margin: 6px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; border: none;
@@ -140,9 +151,47 @@
             <button onclick="closeModal('shop-modal')">Exit Shop</button>
         </div>
 
+        <!-- Blacksmith Upgrade Modal -->
+        <div id="upgrade-modal" class="modal">
+            <h2>Blacksmith - Armor Upgrades</h2>
+            <div class="grid-container">
+                <div class="card">
+                    <h4>Upgrade Armor</h4>
+                    <p id="armor-upgrade-desc">+40 Max HP</p>
+                    <button id="buy-armor-btn" onclick="upgradeArmor()">Upgrade (<span id="armor-cost">80</span> Coins)</button>
+                </div>
+                <div class="card">
+                    <h4>Health Potion</h4>
+                    <p>Restores 50 HP</p>
+                    <button onclick="buyPotion()">Buy (35 Coins)</button>
+                </div>
+            </div>
+            <button onclick="closeModal('upgrade-modal')">Exit Blacksmith</button>
+        </div>
+
+        <!-- Enchanting Table (Gacha) -->
+        <div id="enchant-modal" class="modal">
+            <h2>Enchanting Altar (Gacha)</h2>
+            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Roll the magical dice for powerful passive boosts!</p>
+            <div class="gacha-box">
+                <div id="gacha-display" class="gacha-display">Ready to Roll...</div>
+                <p id="gacha-desc" style="font-size: 11px; color: #aaa; margin-bottom: 12px;">Cost: 75 Coins per Roll</p>
+                <button id="roll-btn" style="background: #9b59b6; padding: 10px 20px; font-size: 13px;" onclick="spinGacha()">Roll Enchantment (75 C)</button>
+            </div>
+            <button onclick="closeModal('enchant-modal')">Leave Table</button>
+        </div>
+
+        <!-- Travel Harbor -->
+        <div id="boat-modal" class="modal">
+            <h2>Travel Harbor</h2>
+            <div id="region-list" class="grid-container"></div>
+            <button onclick="closeModal('boat-modal')">Stay Here</button>
+        </div>
+
         <!-- Mission Board -->
         <div id="mission-modal" class="modal">
             <h2>Select Mission</h2>
+            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">10 Maps available in this region!</p>
             <div id="mission-list" class="grid-container"></div>
             <button onclick="closeModal('mission-modal')">Cancel</button>
         </div>
@@ -169,6 +218,8 @@
         let activeMission = 0;
         let selectedDifficulty = 'normal';
         let diffMultipliers = { adventure: 0.7, normal: 1.0, apocalypse: 1.8 };
+        let armorLevel = 1;
+        let isRolling = false;
 
         let keys = {};
         let mouse = { x: 400, y: 300 };
@@ -176,39 +227,42 @@
         let coins = 100;
 
         let activeWeaponIdx = 0;
-        let equippedSpecialItem = null; // Totem of Undying, Soul Reaper, etc.
+        let activeEnchantment = null;
+        let equippedSpecialItem = null;
 
-        // 30 Unique Items Across Rarities
+        const GACHA_POOL = [
+            { name: "Sharpness I", rarity: "Common", desc: "+15% Damage", color: "#bdc3c7", damageMultiplier: 1.15, chance: 45 },
+            { name: "Sharpness III", rarity: "Rare", desc: "+30% Damage", color: "#3498db", damageMultiplier: 1.30, chance: 30 },
+            { name: "Knockback II", rarity: "Rare", desc: "+20% Dmg & Pushback", color: "#3498db", damageMultiplier: 1.20, chance: 15 },
+            { name: "God Slayer", rarity: "Legendary", desc: "+60% Dmg", color: "#f1c40f", damageMultiplier: 1.60, chance: 7.5 },
+            { name: "WORLD BREAKER", rarity: "Mythic", desc: "+120% Dmg", color: "#e74c3c", damageMultiplier: 2.20, chance: 2.5 }
+        ];
+
         const ITEMS_DATABASE = [
-            // Common
             { id: 1, name: "Wooden Shield", rarity: "Common", desc: "+20 Max HP", cost: 40, hpBonus: 20, type: "passive" },
             { id: 2, name: "Minor Ring", rarity: "Common", desc: "+5% Attack Speed", cost: 45, type: "passive" },
             { id: 3, name: "Iron Helm", rarity: "Common", desc: "+30 Max HP", cost: 60, hpBonus: 30, type: "passive" },
             { id: 4, name: "Leather Boots", rarity: "Common", desc: "+10 Speed", cost: 50, speedBonus: 10, type: "passive" },
             { id: 5, name: "Copper Charm", rarity: "Common", desc: "+5% Gold Gain", cost: 50, type: "passive" },
             { id: 6, name: "Bandage Kit", rarity: "Common", desc: "+1 Potion Slot", cost: 40, type: "passive" },
-            // Rare
             { id: 7, name: "Silver Amulet", rarity: "Rare", desc: "+50 Max HP", cost: 120, hpBonus: 50, type: "passive" },
             { id: 8, name: "Golden Gauntlet", rarity: "Rare", desc: "+15% Damage", cost: 150, type: "passive" },
             { id: 9, name: "Swift Cloak", rarity: "Rare", desc: "+25 Speed", cost: 130, speedBonus: 25, type: "passive" },
             { id: 10, name: "Spiked Collar", rarity: "Rare", desc: "Reflects small damage", cost: 140, type: "passive" },
             { id: 11, name: "Focus Lens", rarity: "Rare", desc: "+10% Crit Chance", cost: 160, type: "passive" },
             { id: 12, name: "Heavy Plating", rarity: "Rare", desc: "+80 Max HP", cost: 180, hpBonus: 80, type: "passive" },
-            // Epic
             { id: 13, name: "Soul Reaper", rarity: "Epic", desc: "Heals 8 HP per kill", cost: 350, type: "special", specialId: "soul_reaper" },
             { id: 14, name: "Shadow Mask", rarity: "Epic", desc: "+30% Damage", cost: 320, type: "passive" },
             { id: 15, name: "Phoenix Feather", rarity: "Epic", desc: "Speed surge under 30% HP", cost: 300, type: "passive" },
             { id: 16, name: "Vampiric Ring", rarity: "Epic", desc: "Potions heal +30 HP", cost: 280, type: "passive" },
             { id: 17, name: "Titan Greaves", rarity: "Epic", desc: "+120 Max HP", cost: 380, hpBonus: 120, type: "passive" },
-            { id: 18, name: " Berserker Core", rarity: "Epic", desc: "+40% Dmg, -20 HP", cost: 340, hpBonus: -20, type: "passive" },
-            // Legendary
+            { id: 18, name: "Berserker Core", rarity: "Epic", desc: "+40% Dmg, -20 HP", cost: 340, hpBonus: -20, type: "passive" },
             { id: 19, name: "Totem of Undying", rarity: "Legendary", desc: "Revives once on death (+100 HP)", cost: 600, type: "special", specialId: "totem" },
             { id: 20, name: "Dragon Heart", rarity: "Legendary", desc: "+200 Max HP", cost: 550, hpBonus: 200, type: "passive" },
             { id: 21, name: "Crown of Midas", rarity: "Legendary", desc: "Doubles Gold drops", cost: 500, type: "passive" },
             { id: 22, name: "Excalibur Crest", rarity: "Legendary", desc: "+60% Damage", cost: 620, type: "passive" },
             { id: 23, name: "Aegis Shield", rarity: "Legendary", desc: "Blocks 20% of incoming hits", cost: 580, type: "passive" },
             { id: 24, name: "Chronos Watch", rarity: "Legendary", desc: "Slower enemy projectiles", cost: 520, type: "passive" },
-            // Mythic
             { id: 25, name: "Orb of Infinity", rarity: "Mythic", desc: "+100% Damage & +150 HP", cost: 1200, hpBonus: 150, type: "passive" },
             { id: 26, name: "Demon Crown", rarity: "Mythic", desc: "Kills trigger shockwaves", cost: 1100, type: "passive" },
             { id: 27, name: "Celestial Pendant", rarity: "Mythic", desc: "Full restore upon stage clear", cost: 1000, type: "passive" },
@@ -229,7 +283,7 @@
 
         const player = {
             x: 400, y: 300, radius: 15, speed: 190,
-            maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 300, // Balanced to require 3+ dungeons
+            maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 300,
             attackTimer: 0, facingAngle: 0, potions: 1
         };
 
@@ -258,7 +312,7 @@
         let enemyProjectiles = [];
         let floatingTexts = [];
         let interactables = [];
-        let structures = []; // Temples, TNT traps, etc.
+        let structures = [];
         let curMapSize = { width: 1200, height: 900 };
         const camera = { x: 0, y: 0 };
 
@@ -269,7 +323,7 @@
         }
 
         function saveGame() {
-            const data = { coins, unlockedMission, currentRegion, ownedItems, activeWeaponIdx, equippedSpecialItem, playerLevel: player.level, playerXP: player.xp, playerXpToNext: player.xpToNext, potions: player.potions };
+            const data = { coins, unlockedMission, currentRegion, ownedItems, activeWeaponIdx, equippedSpecialItem, armorLevel, activeEnchantment, playerLevel: player.level, playerXP: player.xp, playerXpToNext: player.xpToNext, potions: player.potions };
             localStorage.setItem('dungeon_apocalypse_save', JSON.stringify(data));
         }
 
@@ -284,6 +338,8 @@
                 ownedItems = data.ownedItems ?? [];
                 activeWeaponIdx = data.activeWeaponIdx ?? 0;
                 equippedSpecialItem = data.equippedSpecialItem ?? null;
+                armorLevel = data.armorLevel ?? 1;
+                activeEnchantment = data.activeEnchantment ?? null;
                 player.level = data.playerLevel ?? 1;
                 player.xp = data.playerXP ?? 0;
                 player.xpToNext = data.playerXpToNext ?? 300;
@@ -298,7 +354,7 @@
                 const item = ITEMS_DATABASE.find(i => i.id === id);
                 if (item && item.hpBonus) extraHp += item.hpBonus;
             });
-            player.maxHp = 100 + extraHp + ((player.level - 1) * 20);
+            player.maxHp = 100 + extraHp + ((armorLevel - 1) * 40) + ((player.level - 1) * 20);
             player.hp = Math.min(player.hp, player.maxHp);
         }
 
@@ -324,8 +380,12 @@
             player.hp = player.maxHp;
             enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = []; structures = [];
 
-            interactables.push({ x: 350, y: 350, radius: 25, type: 'shop', label: 'Artifact Shop (F)' });
+            // Restored original NPCs
+            interactables.push({ x: 250, y: 350, radius: 25, type: 'shop', label: 'Artifact Shop (F)' });
+            interactables.push({ x: 450, y: 350, radius: 25, type: 'enchant', label: 'Gacha Enchant (F)' });
+            interactables.push({ x: 650, y: 350, radius: 25, type: 'upgrade', label: 'Blacksmith (F)' });
             interactables.push({ x: 850, y: 350, radius: 25, type: 'mission_board', label: 'Missions (F)' });
+            interactables.push({ x: 600, y: 750, radius: 30, type: 'boat', label: 'Travel Boat (F)' });
             updateUI();
         }
 
@@ -342,15 +402,12 @@
 
             const diffMod = diffMultipliers[selectedDifficulty];
 
-            // Build Desert Temple Special Structure in Desert Maps
             if (config.region === 1) {
                 structures.push({
                     x: curMapSize.width / 2 - 100, y: curMapSize.height / 2 - 100,
                     w: 200, h: 200, type: 'desert_temple'
                 });
-                // TNT Hazard inside temple
                 interactables.push({ x: curMapSize.width / 2, y: curMapSize.height / 2 + 30, radius: 15, type: 'tnt', primed: false, label: 'TNT Pressure Plate' });
-                // Temple Treasure Chest
                 interactables.push({ x: curMapSize.width / 2, y: curMapSize.height / 2 - 40, radius: 18, type: 'chest', opened: false, label: 'Temple Treasure (F)' });
             }
 
@@ -359,7 +416,6 @@
                 radius: 28, type: 'portal', active: false, label: 'Exit Portal (Locked)'
             });
 
-            // Enemies adjusted to spawn based on selection
             for (let i = 0; i < Math.round(config.enemies * diffMod); i++) {
                 enemies.push({
                     x: Math.random() * (curMapSize.width - 400) + 300,
@@ -378,7 +434,10 @@
             interactables.forEach(obj => {
                 if (Math.hypot(player.x - obj.x, player.y - obj.y) < player.radius + obj.radius + 25) {
                     if (obj.type === 'shop') openShop();
+                    if (obj.type === 'enchant') openModal('enchant-modal');
+                    if (obj.type === 'upgrade') openModal('upgrade-modal');
                     if (obj.type === 'mission_board') openMissionBoard();
+                    if (obj.type === 'boat') openBoatHarbor();
                     if (obj.type === 'chest' && !obj.opened) {
                         obj.opened = true;
                         const drop = 40 + (activeMission * 6);
@@ -395,6 +454,72 @@
                 }
             });
         }
+
+        function spinGacha() {
+            if (isRolling || coins < 75) return;
+            coins -= 75;
+            isRolling = true;
+            updateUI();
+
+            const display = document.getElementById('gacha-display');
+            document.getElementById('roll-btn').disabled = true;
+
+            let counter = 0;
+            const rollInterval = setInterval(() => {
+                const temp = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
+                display.innerText = temp.name;
+                display.style.color = temp.color;
+                counter++;
+
+                if (counter > 15) {
+                    clearInterval(rollInterval);
+                    const rand = Math.random() * 100;
+                    let cumulative = 0;
+                    let selected = GACHA_POOL[0];
+                    for (let enc of GACHA_POOL) {
+                        cumulative += enc.chance;
+                        if (rand <= cumulative) { selected = enc; break; }
+                    }
+
+                    activeEnchantment = selected;
+                    display.innerText = `${selected.name} (${selected.rarity})`;
+                    display.style.color = selected.color;
+                    isRolling = false;
+                    document.getElementById('roll-btn').disabled = false;
+                    saveGame(); updateUI();
+                }
+            }, 100);
+        }
+
+        function openBoatHarbor() {
+            const container = document.getElementById('region-list');
+            container.innerHTML = '';
+            REGIONS.forEach((r, idx) => {
+                const firstMapInRegion = (idx * 10) + 1;
+                const isUnlocked = unlockedMission >= firstMapInRegion;
+                const card = document.createElement('div');
+                card.className = `card ${isUnlocked ? '' : 'locked'}`;
+                card.innerHTML = `
+                    <h4 style="color:${r.color}">${r.name}</h4>
+                    <button ${isUnlocked ? '' : 'disabled'} onclick="travelToRegion(${idx})">${idx === currentRegion ? 'Current' : 'Sail'}</button>
+                `;
+                container.appendChild(card);
+            });
+            openModal('boat-modal');
+        }
+
+        function travelToRegion(idx) {
+            currentRegion = idx; closeModal('boat-modal'); saveGame(); updateUI();
+        }
+
+        function upgradeArmor() {
+            const cost = armorLevel * 80;
+            if (coins >= cost) {
+                coins -= cost; armorLevel++; recalcStats(); saveGame(); updateUI();
+            }
+        }
+
+        function buyPotion() { if (coins >= 35) { coins -= 35; player.potions++; saveGame(); updateUI(); } }
 
         function explodeTNT(x, y) {
             addFloatingText(x, y, 'BOOM!', '#e74c3c', 30);
@@ -414,17 +539,20 @@
             const w = WEAPONS[activeWeaponIdx];
             player.attackTimer = w.cd;
 
+            let dmg = w.damage;
+            if (activeEnchantment) dmg = Math.round(dmg * activeEnchantment.damageMultiplier);
+
             if (w.type === 'bow') {
                 playerProjectiles.push({
                     x: player.x, y: player.y,
                     vx: Math.cos(player.facingAngle) * 450, vy: Math.sin(player.facingAngle) * 450,
-                    damage: w.damage, radius: 5, color: w.color
+                    damage: dmg, radius: 5, color: w.color
                 });
             } else {
                 enemies.forEach(e => {
                     if (Math.hypot(e.x - player.x, e.y - player.y) <= w.range + e.radius) {
-                        e.hp -= w.damage;
-                        addFloatingText(e.x, e.y - 15, w.damage.toString(), '#fff', 16);
+                        e.hp -= dmg;
+                        addFloatingText(e.x, e.y - 15, dmg.toString(), '#fff', 16);
                         if (e.hp <= 0) killEnemy(e);
                     }
                 });
@@ -435,7 +563,6 @@
             coins += 8;
             enemies = enemies.filter(enemy => enemy !== e);
 
-            // Special Item Soul Reaper trigger
             if (equippedSpecialItem === 'soul_reaper') {
                 player.hp = Math.min(player.maxHp, player.hp + 8);
                 addFloatingText(player.x, player.y - 20, '+8 HP (Soul Reaper)', '#9b59b6', 14);
@@ -458,7 +585,7 @@
             if (player.xp >= player.xpToNext) {
                 player.xp -= player.xpToNext;
                 player.level++;
-                player.xpToNext = Math.round(player.xpToNext * 1.6); // Exponential scaling requiring ~3+ dungeons per level
+                player.xpToNext = Math.round(player.xpToNext * 1.6);
                 recalcStats();
                 addFloatingText(player.x, player.y - 35, 'LEVEL UP!', '#2ecc71', 22);
             }
@@ -467,9 +594,8 @@
 
         function checkPlayerDeath(reason) {
             if (player.hp <= 0) {
-                // Check Totem of Undying Special Item
                 if (equippedSpecialItem === 'totem') {
-                    equippedSpecialItem = null; // Consume Totem
+                    equippedSpecialItem = null;
                     player.hp = 100;
                     addFloatingText(player.x, player.y - 30, 'TOTEM SAVED YOU!', '#f1c40f', 24);
                     saveGame(); updateUI();
@@ -507,16 +633,23 @@
             }
         }
 
+        // Fixed strictly to 10 maps per region
         function openMissionBoard() {
             const container = document.getElementById('mission-list');
             container.innerHTML = '';
-            for (let i = 1; i <= 40; i++) {
+            const startMap = (currentRegion * 10) + 1;
+            const endMap = startMap + 9;
+
+            for (let i = startMap; i <= endMap; i++) {
+                const m = MISSIONS[i];
                 const isUnlocked = i <= unlockedMission;
                 const card = document.createElement('div');
                 card.className = `card ${isUnlocked ? '' : 'locked'}`;
                 card.innerHTML = `
-                    <h4>Map ${i}</h4>
-                    <button ${isUnlocked ? '' : 'disabled'} onclick="startMission(${i})">${isUnlocked ? 'Play' : 'Locked'}</button>
+                    <h4>M${i}: ${m.name}</h4>
+                    <p>Mobs: ${m.enemies}</p>
+                    <p style="color:#f1c40f;">Reward: ${m.reward} C</p>
+                    <button ${isUnlocked ? '' : 'disabled'} onclick="startMission(${i})">${isUnlocked ? 'Launch' : 'Locked'}</button>
                 `;
                 container.appendChild(card);
             }
@@ -537,6 +670,7 @@
             document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
             document.getElementById('hud-special').innerText = equippedSpecialItem ? equippedSpecialItem.replace('_', ' ').toUpperCase() : 'None';
             document.getElementById('hud-potion').innerText = `x${player.potions}`;
+            document.getElementById('armor-cost').innerText = armorLevel * 80;
         }
 
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
@@ -597,7 +731,6 @@
             ctx.fillStyle = locationState === 'lobby' ? '#1c1c24' : REGIONS[currentRegion].bgTile;
             ctx.fillRect(0, 0, curMapSize.width, curMapSize.height);
 
-            // Structures (Desert Temple)
             structures.forEach(s => {
                 if (s.type === 'desert_temple') {
                     ctx.fillStyle = '#d35400'; ctx.fillRect(s.x, s.y, s.w, s.h);
@@ -605,11 +738,23 @@
                 }
             });
 
-            // Interactables
             interactables.forEach(obj => {
                 ctx.save(); ctx.translate(obj.x, obj.y);
                 if (obj.type === 'shop') {
                     ctx.fillStyle = '#9b59b6'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🛍️', 0, 5);
+                } else if (obj.type === 'enchant') {
+                    ctx.fillStyle = '#8e44ad'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎰', 0, 5);
+                } else if (obj.type === 'upgrade') {
+                    ctx.fillStyle = '#f1c40f'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚒️', 0, 5);
+                } else if (obj.type === 'mission_board') {
+                    ctx.fillStyle = '#e67e22'; ctx.fillRect(-obj.radius, -obj.radius, obj.radius * 2, obj.radius * 2);
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('📜', 0, 5);
+                } else if (obj.type === 'boat') {
+                    ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⛵', 0, 6);
                 } else if (obj.type === 'tnt') {
                     ctx.fillStyle = obj.primed ? '#e74c3c' : '#c0392b'; ctx.fillRect(-12, -12, 24, 24);
                 } else if (obj.type === 'chest') {
@@ -619,9 +764,15 @@
                 ctx.restore();
             });
 
-            // Enemies & Player
+            // Enemies with overhead Health Bars added back
             enemies.forEach(e => {
-                ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.save(); ctx.translate(e.x, e.y);
+                ctx.fillStyle = e.color; ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, Math.PI * 2); ctx.fill();
+                
+                // Overhead Health Bar
+                ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(-20, -e.radius - 12, 40, 5);
+                ctx.fillStyle = '#e74c3c'; ctx.fillRect(-20, -e.radius - 12, Math.max(0, (e.hp / e.maxHp)) * 40, 5);
+                ctx.restore();
             });
 
             ctx.fillStyle = '#3498db'; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill();
