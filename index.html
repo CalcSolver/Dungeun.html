@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Playful World Engine</title>
+  <title>Playful World Engine - Top Down</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body { background: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    #gameContainer { position: relative; width: 800px; height: 600px; background: #5c94fc; border: 4px solid #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    canvas { display: block; background: #87CEEB; }
+    #gameContainer { position: relative; width: 800px; height: 600px; background: #2e7d32; border: 4px solid #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    canvas { display: block; background: #2e7d32; }
     
     /* Inventory UI */
     #inventoryOverlay {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.75); display: none;
+      background: rgba(0, 0, 0, 0.8); display: none;
       justify-content: center; align-items: center; gap: 20px;
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px); z-index: 10;
     }
     .inv-card {
       background: #2c2c3e; border: 3px solid #ffcc00; border-radius: 12px;
@@ -35,24 +35,22 @@
     #charCanvas { background: #1a1a24; border-radius: 8px; border: 2px solid #ffcc00; }
     
     /* HUD */
-    #hud { position: absolute; top: 12px; left: 12px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 20px; }
+    #hud { position: absolute; top: 12px; left: 12px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 20px; pointer-events: none; z-index: 5; }
   </style>
 </head>
 <body>
 
 <div id="gameContainer">
-  <div id="hud">E: Inventory | Click/Space: Shoot Bow | Walk Right: Boat Ride</div>
+  <div id="hud">WASD: Move | E: Inventory | Click/Space: Shoot | Walk to Water for Side-View Boat</div>
   <canvas id="gameCanvas" width="800" height="600"></canvas>
   
   <!-- Inventory Overlay -->
   <div id="inventoryOverlay">
-    <!-- Character Showcase -->
     <div class="inv-card">
       <div class="inv-title">Character</div>
       <canvas id="charCanvas" width="180" height="260"></canvas>
     </div>
     
-    <!-- Minimal Items Grid -->
     <div class="inv-card">
       <div class="inv-title">Bag</div>
       <div class="item-grid" id="itemGrid"></div>
@@ -72,25 +70,32 @@ let secretUnlocked = false;
 
 // Game State
 const player = {
-  x: 100, y: 450, vx: 0, vy: 0,
-  width: 30, height: 50,
-  inBoat: false,
+  x: 150, y: 300,
+  speed: 3.5,
+  radius: 18,
+  angle: 0, // In radians for 360 rotation aim
+  inWater: false,
   equippedArmour: false,
-  equippedBow: false,
-  facing: 1
+  equippedBow: false
 };
 
 const items = [
-  { id: 'armour', icon: '🛡️', count: 1, name: 'Armor' },
-  { id: 'bow', icon: '🏹', count: 1, name: 'Bow' },
-  { id: 'arrow', icon: '🎯', count: 24, name: 'Arrows' },
-  { id: 'boat', icon: '⛵', count: 1, name: 'Boat' },
-  { id: 'key', icon: '🔑', count: 1, name: 'Secret Key' }
+  { id: 'armour', icon: '🛡️', count: 1 },
+  { id: 'bow', icon: '🏹', count: 1 },
+  { id: 'arrow', icon: '🎯', count: 30 },
+  { id: 'boat', icon: '⛵', count: 1 },
+  { id: 'key', icon: '🔑', count: 1 }
 ];
 
-// Flying Arrows array
+// Target Dummies in the top-down world
+const targets = [
+  { x: 300, y: 120, hit: false },
+  { x: 300, y: 480, hit: false }
+];
+
 const arrows = [];
 let boatBob = 0;
+let mouseX = 0, mouseY = 0;
 
 // Input Handling
 window.addEventListener('keydown', e => {
@@ -103,46 +108,43 @@ window.addEventListener('keydown', e => {
     if (invOpen) drawCharacterPreview();
   }
 
-  // Shoot Arrow on Spacebar
-  if (key === ' ' && !invOpen) {
-    shootArrow();
-  }
+  if (key === ' ' && !invOpen) shootArrow();
 });
 
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-// Shoot Arrow on Left Click
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+  mouseY = e.clientY - rect.top;
+});
+
 canvas.addEventListener('mousedown', e => {
-  if (e.button === 0 && !invOpen) {
-    shootArrow();
-  }
+  if (e.button === 0 && !invOpen) shootArrow();
 });
 
 function shootArrow() {
   const arrowItem = items.find(i => i.id === 'arrow');
-  if (player.equippedBow && arrowItem && arrowItem.count > 0) {
+  if (player.equippedBow && arrowItem && arrowItem.count > 0 && !player.inWater) {
     arrowItem.count--;
     renderInventoryUI();
     
     arrows.push({
-      x: player.x + (player.facing > 0 ? player.width + 5 : -5),
-      y: (player.inBoat ? player.y - 10 + Math.sin(boatBob) * 4 : player.y) + 20,
-      vx: player.facing * 10,
-      vy: -1
+      x: player.x,
+      y: player.y,
+      vx: Math.cos(player.angle) * 9,
+      vy: Math.sin(player.angle) * 9,
+      life: 100
     });
   }
 }
 
-// Render minimal inventory grid
 function renderInventoryUI() {
   const grid = document.getElementById('itemGrid');
   grid.innerHTML = '';
   items.forEach(item => {
     const slot = document.createElement('div');
-    let isActive = false;
-    if (item.id === 'armour' && player.equippedArmour) isActive = true;
-    if (item.id === 'bow' && player.equippedBow) isActive = true;
-
+    let isActive = (item.id === 'armour' && player.equippedArmour) || (item.id === 'bow' && player.equippedBow);
     slot.className = `item-slot ${isActive ? 'active' : ''}`;
     slot.innerHTML = `<span>${item.icon}</span><span class="item-count">${item.count}</span>`;
     slot.onclick = () => toggleEquip(item.id);
@@ -158,15 +160,12 @@ function toggleEquip(id) {
   drawCharacterPreview();
 }
 
-// Character draw function for inventory preview
 function drawCharacterPreview() {
   charCtx.clearRect(0, 0, charCanvas.width, charCanvas.height);
-  
-  // Platform
   charCtx.fillStyle = '#333';
   charCtx.fillRect(20, 220, 140, 10);
 
-  // Body / Armour
+  // Body
   charCtx.fillStyle = player.equippedArmour ? '#c0c0c0' : '#ff7b7b';
   charCtx.fillRect(75, 110, 30, 60);
 
@@ -176,13 +175,11 @@ function drawCharacterPreview() {
   charCtx.arc(90, 90, 20, 0, Math.PI * 2);
   charCtx.fill();
 
-  // Helmet
   if (player.equippedArmour) {
     charCtx.fillStyle = '#a0a0a0';
     charCtx.fillRect(68, 68, 44, 12);
   }
 
-  // Bow
   if (player.equippedBow) {
     charCtx.strokeStyle = '#8b4513';
     charCtx.lineWidth = 4;
@@ -192,136 +189,182 @@ function drawCharacterPreview() {
   }
 }
 
-// Main Game Loop
+// Game Updates
 function update() {
-  // Movement
-  if (!invOpen) {
-    if (keys['a'] || keys['arrowleft']) { player.vx = -4; player.facing = -1; }
-    else if (keys['d'] || keys['arrowright']) { player.vx = 4; player.facing = 1; }
-    else player.vx = 0;
+  if (invOpen) return;
 
-    if (keys['w'] && player.y >= 450) player.vy = -10;
-  }
+  // Water trigger region (Right side of screen)
+  player.inWater = player.x > 580;
 
-  // Gravity
-  player.vy += 0.5;
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // Ground collision
-  if (player.y > 450) { player.y = 450; player.vy = 0; }
-
-  // Water & Boat logic
-  const waterStart = 500;
-  if (player.x > waterStart) {
-    player.inBoat = true;
-    player.y = 460;
+  if (player.inWater) {
+    // Side-View Boat Mode Controls
+    if (keys['a'] || keys['arrowleft']) player.x -= 3;
+    if (keys['d'] || keys['arrowright']) player.x += 3;
+    if (keys['w'] || keys['arrowup']) player.y -= 3;
+    if (keys['s'] || keys['arrowdown']) player.y += 3;
+    boatBob += 0.08;
   } else {
-    player.inBoat = false;
+    // Top-Down Walking Controls
+    let dx = 0, dy = 0;
+    if (keys['a'] || keys['arrowleft']) dx -= 1;
+    if (keys['d'] || keys['arrowright']) dx += 1;
+    if (keys['w'] || keys['arrowup']) dy -= 1;
+    if (keys['s'] || keys['arrowdown']) dy += 1;
+
+    if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+
+    player.x += dx * player.speed;
+    player.y += dy * player.speed;
+
+    // Boundaries
+    player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+    player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+    // Calculate mouse angle for aiming
+    player.angle = Math.atan2(mouseY - player.y, mouseX - player.x);
+
+    // Secret Portal Unlock trigger
+    if (Math.hypot(player.x - 400, player.y - 80) < 30) {
+      secretUnlocked = true;
+    }
   }
 
-  // Boat bobbing animation
-  boatBob += 0.08;
-
-  // Secret Portal Collision
-  if (player.x > 350 && player.x < 410 && player.y >= 440) {
-    secretUnlocked = true;
-  }
-
-  // Update flying arrows
+  // Update Arrows
   for (let i = arrows.length - 1; i >= 0; i--) {
     let a = arrows[i];
     a.x += a.vx;
     a.y += a.vy;
-    a.vy += 0.05; // Light arrow gravity
+    a.life--;
 
-    // Remove arrows if off screen or hitting water/ground
-    if (a.x < 0 || a.x > canvas.width || a.y > 500) {
+    // Target Collisions
+    targets.forEach(t => {
+      if (!t.hit && Math.hypot(a.x - t.x, a.y - t.y) < 20) {
+        t.hit = true;
+        arrows.splice(i, 1);
+      }
+    });
+
+    if (a.life <= 0 || a.x < 0 || a.x > canvas.width || a.y < 0 || a.y > canvas.height) {
       arrows.splice(i, 1);
     }
   }
 }
 
+// Rendering
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw Sky & Ground
-  ctx.fillStyle = '#5c94fc';
-  ctx.fillRect(0, 0, canvas.width, 500);
-  ctx.fillStyle = '#7ec850';
-  ctx.fillRect(0, 500, 500, 100);
+  if (player.inWater) {
+    // --- SIDE-VIEW BOAT MODE ---
+    ctx.fillStyle = '#5c94fc';
+    ctx.fillRect(0, 0, canvas.width, 400); // Sky
+    ctx.fillStyle = '#2b65ec';
+    ctx.fillRect(0, 400, canvas.width, 200); // Water
 
-  // Draw Water Area
-  ctx.fillStyle = '#2b65ec';
-  ctx.fillRect(500, 500, 300, 100);
+    const floatOffset = Math.sin(boatBob) * 5;
+    const bx = player.x;
+    const by = 430 + floatOffset;
 
-  // Secret Portal
-  ctx.fillStyle = secretUnlocked ? '#9b59b6' : '#2c3e50';
-  ctx.fillRect(360, 410, 40, 90);
-  if (secretUnlocked) {
-    ctx.fillStyle = '#f1c40f';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('SECRET WORLD!', 335, 400);
-  } else {
-    ctx.fillStyle = '#fff';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('Secret Portal', 345, 400);
-  }
-
-  // Boat Riding Animation & Player Render
-  const floatOffset = Math.sin(boatBob) * 4;
-
-  if (player.inBoat) {
     // Boat Hull
     ctx.fillStyle = '#8b4513';
     ctx.beginPath();
-    ctx.moveTo(player.x - 20, 510 + floatOffset);
-    ctx.lineTo(player.x + 50, 510 + floatOffset);
-    ctx.lineTo(player.x + 40, 530 + floatOffset);
-    ctx.lineTo(player.x - 10, 530 + floatOffset);
+    ctx.moveTo(bx - 40, by);
+    ctx.lineTo(bx + 50, by);
+    ctx.lineTo(bx + 35, by + 30);
+    ctx.lineTo(bx - 25, by + 30);
     ctx.closePath();
     ctx.fill();
 
-    // Ripples
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    // Player in Boat (Side View)
+    ctx.fillStyle = player.equippedArmour ? '#c0c0c0' : '#ff7b7b';
+    ctx.fillRect(bx - 5, by - 35, 20, 35);
+    ctx.fillStyle = '#ffdbac';
+    ctx.fillRect(bx - 2, by - 50, 14, 15);
+
+    // Water Ripples
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(player.x + 15, 532 + floatOffset, 25, 0, Math.PI);
+    ctx.arc(bx + 5, by + 30, 30, 0, Math.PI);
     ctx.stroke();
-  }
 
-  // Render Player Character
-  const renderY = player.inBoat ? player.y - 10 + floatOffset : player.y;
-  
-  // Body
-  ctx.fillStyle = player.equippedArmour ? '#c0c0c0' : '#ff7b7b';
-  ctx.fillRect(player.x, renderY, player.width, player.height);
+  } else {
+    // --- BIRD'S-EYE VIEW MODE ---
+    
+    // Grass Field
+    ctx.fillStyle = '#419834';
+    ctx.fillRect(0, 0, 580, canvas.height);
 
-  // Head
-  ctx.fillStyle = '#ffdbac';
-  ctx.fillRect(player.x + 5, renderY - 15, 20, 15);
+    // Water Zone on Right
+    ctx.fillStyle = '#2b65ec';
+    ctx.fillRect(580, 0, 220, canvas.height);
 
-  // Bow equipped
-  if (player.equippedBow) {
-    ctx.strokeStyle = '#8b4513';
-    ctx.lineWidth = 3;
+    // Secret Portal (Top-Down)
+    ctx.fillStyle = secretUnlocked ? '#9b59b6' : '#2c3e50';
     ctx.beginPath();
-    ctx.arc(player.x + (player.facing > 0 ? 30 : 0), renderY + 20, 15, -Math.PI / 2, Math.PI / 2);
-    ctx.stroke();
-  }
-
-  // Render Flying Arrows
-  ctx.fillStyle = '#5c3a21';
-  ctx.strokeStyle = '#fff';
-  arrows.forEach(a => {
-    ctx.beginPath();
-    ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
+    ctx.arc(400, 80, 25, 0, Math.PI * 2);
     ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    ctx.lineTo(a.x - (a.vx * 1.5), a.y);
+    ctx.strokeStyle = secretUnlocked ? '#f1c40f' : '#7f8c8d';
+    ctx.lineWidth = 4;
     ctx.stroke();
-  });
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(secretUnlocked ? 'PORTAL OPEN!' : 'Secret Portal', 400, 45);
+
+    // Targets (Top-Down)
+    targets.forEach(t => {
+      ctx.fillStyle = t.hit ? '#7f8c8d' : '#e74c3c';
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Arrows
+    ctx.fillStyle = '#1a1a1a';
+    arrows.forEach(a => {
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Top-Down Player Character
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+
+    // Body
+    ctx.fillStyle = player.equippedArmour ? '#a0a0a0' : '#ff7b7b';
+    ctx.beginPath();
+    ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Shoulders / Hands
+    ctx.fillStyle = '#ffdbac';
+    ctx.beginPath();
+    ctx.arc(12, -10, 5, 0, Math.PI * 2);
+    ctx.arc(12, 10, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bow (Top-Down view held forward)
+    if (player.equippedBow) {
+      ctx.strokeStyle = '#8b4513';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(15, 0, 14, -Math.PI / 3, Math.PI / 3);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
 
   requestAnimationFrame(() => {
     update();
