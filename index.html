@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>Dungeon Explorer - Startup Sequence</title>
+    <title>Dungeon Explorer</title>
     <style>
         * {
             box-sizing: border-box;
@@ -11,336 +11,259 @@
             padding: 0;
             user-select: none;
             -webkit-user-select: none;
-            -webkit-touch-callout: none;
-        }
-
-        body {
-            background-color: #030305;
-            color: #fff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
             touch-action: manipulation;
         }
 
-        /* Responsive Frame for Mobile & Desktop */
-        #intro-container {
+        body {
+            background-color: #0d0d13;
+            color: #fff;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Game Header & UI */
+        #ui-bar {
+            width: 100%;
+            max-width: 600px;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px 8px 0 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .region-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        /* Game Canvas Container */
+        #game-container {
             position: relative;
             width: 100vw;
-            height: 100vh;
-            max-width: 900px;
-            max-height: 650px;
-            background: #06060c;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            perspective: 1200px;
+            height: 60vh;
+            max-width: 600px;
+            max-height: 400px;
+            background: #000;
+            border: 2px solid #2a2a38;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
 
-        @media (min-width: 768px) {
-            #intro-container {
-                border: 2px solid rgba(255, 255, 255, 0.1);
-                border-radius: 16px;
-                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
-            }
-        }
-
-        /* Subtle Ambient Glow */
-        .bg-glow {
-            position: absolute;
-            width: 320px;
-            height: 320px;
-            background: radial-gradient(circle, rgba(142, 68, 173, 0.2) 0%, rgba(0,0,0,0) 70%);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        /* 3D Scene Space */
-        .scene {
-            width: 130px;
-            height: 130px;
-            position: relative;
-            transform-style: preserve-3d;
-            transform: translateY(-30px) rotateX(-22deg) rotateY(25deg);
-            z-index: 2;
-        }
-
-        /* 3D Cube */
-        .cube {
+        canvas {
             width: 100%;
             height: 100%;
-            position: absolute;
-            transform-style: preserve-3d;
-            transform-origin: center center;
-            opacity: 0;
+            display: block;
+            image-rendering: pixelated;
         }
 
-        /* Cube Faces representing 4 Regions */
-        .face {
-            position: absolute;
-            width: 130px;
-            height: 130px;
-            border: 2px solid rgba(255, 255, 255, 0.8);
-            border-radius: 12px;
+        /* Mobile Controls Overlay */
+        #mobile-controls {
+            width: 100%;
+            max-width: 600px;
+            height: 25vh;
+            max-height: 180px;
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: rgba(15, 15, 22, 0.9);
+            border-radius: 0 0 8px 8px;
+        }
+
+        /* D-Pad Layout */
+        .dpad {
+            display: grid;
+            grid-template-columns: repeat(3, 45px);
+            grid-template-rows: repeat(3, 45px);
+            gap: 4px;
+        }
+
+        .btn {
+            background: #222230;
+            border: 2px solid #444455;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            display: flex;
             justify-content: center;
             align-items: center;
-            font-weight: 800;
-            font-size: 13px;
-            letter-spacing: 1px;
-            text-shadow: 0 2px 4px #000;
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
-            background-size: cover;
+            box-shadow: 0 4px 0 #11111a;
         }
 
-        .face-icon { 
-            font-size: 34px; 
-            margin-bottom: 4px; 
+        .btn:active, .btn.active {
+            background: #f1c40f;
+            color: #000;
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #11111a;
         }
 
-        /* 1. Fire Region */
-        .face-front { 
-            transform: translateZ(65px); 
-            background: linear-gradient(135deg, #d63031, #740001);
-            border-color: #ff7675;
-            color: #ffeaa7;
-        }
-        /* 2. Ice Region */
-        .face-right { 
-            transform: rotateY(90deg) translateZ(65px); 
-            background: linear-gradient(135deg, #0984e3, #00cec9);
-            border-color: #74b9ff;
-            color: #dff9fb;
-        }
-        /* 3. Poison Swamp */
-        .face-back { 
-            transform: rotateY(180deg) translateZ(65px); 
-            background: linear-gradient(135deg, #10ac84, #1dd1a1);
-            border-color: #55efc4;
-            color: #10ac84;
-        }
-        /* 4. Shadow Crypt */
-        .face-left { 
-            transform: rotateY(-90deg) translateZ(65px); 
-            background: linear-gradient(135deg, #5f27cd, #341f97);
-            border-color: #a29bfe;
-            color: #f3a683;
-        }
-        /* Top & Bottom */
-        .face-top { 
-            transform: rotateX(90deg) translateZ(65px); 
-            background: #2d3436;
-            border-color: #636e72;
-        }
-        .face-bottom { 
-            transform: rotateX(-90deg) translateZ(65px); 
-            background: #0f0f14;
-            border-color: #2d3436;
+        .btn-up { grid-column: 2; grid-row: 1; }
+        .btn-left { grid-column: 1; grid-row: 2; }
+        .btn-down { grid-column: 2; grid-row: 2; }
+        .btn-right { grid-column: 3; grid-row: 2; }
+
+        /* Action Buttons */
+        .action-btns {
+            display: flex;
+            gap: 15px;
         }
 
-        /* Title Styling */
-        .game-title {
-            font-size: 32px;
-            font-weight: 900;
-            color: #f1c40f;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            margin-top: 25px;
-            opacity: 0;
-            text-shadow: 0 0 15px rgba(241, 196, 15, 0.5), 2px 2px 0px #000;
-            z-index: 2;
-            text-align: center;
-            padding: 0 10px;
+        .action-btn {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            font-size: 14px;
         }
 
-        @media (min-width: 600px) {
-            .game-title { font-size: 42px; letter-spacing: 4px; }
-            .scene { width: 140px; height: 140px; }
-            .face { width: 140px; height: 140px; }
-            .face-front { transform: translateZ(70px); }
-            .face-right { transform: rotateY(90deg) translateZ(70px); }
-            .face-back { transform: rotateY(180deg) translateZ(70px); }
-            .face-left { transform: rotateY(-90deg) translateZ(70px); }
-            .face-top { transform: rotateX(90deg) translateZ(70px); }
-            .face-bottom { transform: rotateX(-90deg) translateZ(70px); }
-        }
-
-        /* Progress Bar */
-        .timer-container {
-            position: absolute;
-            bottom: 30px;
-            width: 70%;
-            max-width: 300px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .timer-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, #5f27cd, #f1c40f);
-        }
-
-        /* Mobile-Friendly Skip Button */
-        .skip-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ccc;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 11px;
-            letter-spacing: 1px;
-            cursor: pointer;
-            z-index: 10;
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-        }
-        .skip-btn:active {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-        }
-
-        /* Animation Sequence */
-        @keyframes cubeRollIn {
-            0% {
-                opacity: 0;
-                transform: translateY(-280px) scale(0.3) rotateX(720deg) rotateY(360deg);
-            }
-            35% {
-                opacity: 1;
-                transform: translateY(0) scale(1) rotateX(360deg) rotateY(180deg);
-            }
-            50% {
-                transform: translateY(-40px) rotateX(270deg) rotateY(90deg);
-            }
-            65% {
-                transform: translateY(0) rotateX(180deg) rotateY(0deg);
-            }
-            80% {
-                transform: translateY(-15px) rotateX(90deg) rotateY(-90deg);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0) rotateX(0deg) rotateY(0deg);
-            }
-        }
-
-        @keyframes cubeSpinShowcase {
-            0% { transform: rotateX(0deg) rotateY(0deg); }
-            25% { transform: rotateX(0deg) rotateY(-90deg); }
-            50% { transform: rotateX(0deg) rotateY(-180deg); }
-            75% { transform: rotateX(0deg) rotateY(-270deg); }
-            100% { transform: rotateX(0deg) rotateY(-360deg); }
-        }
-
-        @keyframes titleSlam {
-            0% { opacity: 0; transform: scale(1.8) translateY(20px); filter: blur(8px); }
-            100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
-        }
-
-        @keyframes timerFill {
-            0% { width: 0%; }
-            100% { width: 100%; }
-        }
-
-        @keyframes fadeOutAll {
-            0% { opacity: 1; }
-            100% { opacity: 0; }
-        }
+        .btn-attack { background: #e74c3c; border-color: #ff7675; }
+        .btn-interact { background: #3498db; border-color: #74b9ff; }
     </style>
 </head>
 <body>
 
-    <div id="intro-container">
-        <div class="bg-glow"></div>
+    <div id="ui-bar">
+        <div>HP: <span id="hp-val" style="color: #e74c3c;">100</span></div>
+        <div id="region-tag" class="region-badge" style="background: #e74c3c;">🔥 VOLCANO</div>
+        <div>SCORE: <span id="score-val" style="color: #f1c40f;">0</span></div>
+    </div>
 
-        <button class="skip-btn" onclick="finishIntro()">SKIP</button>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
 
-        <div class="scene">
-            <div id="cube" class="cube">
-                <!-- Region 1: Fire -->
-                <div class="face face-front">
-                    <span class="face-icon">🔥</span>
-                    <span>VOLCANO</span>
-                </div>
-                <!-- Region 2: Ice -->
-                <div class="face face-right">
-                    <span class="face-icon">❄️</span>
-                    <span>FROST</span>
-                </div>
-                <!-- Region 3: Poison Swamp -->
-                <div class="face face-back">
-                    <span class="face-icon">☣️</span>
-                    <span>SWAMP</span>
-                </div>
-                <!-- Region 4: Shadow Crypt -->
-                <div class="face face-left">
-                    <span class="face-icon">💀</span>
-                    <span>CRYPT</span>
-                </div>
-                <!-- Top / Bottom -->
-                <div class="face face-top"></div>
-                <div class="face face-bottom"></div>
-            </div>
+    <!-- On-Screen Touch Controls -->
+    <div id="mobile-controls">
+        <div class="dpad">
+            <div class="btn btn-up" id="btn-u">▲</div>
+            <div class="btn btn-left" id="btn-l">◀</div>
+            <div class="btn btn-down" id="btn-d">▼</div>
+            <div class="btn btn-right" id="btn-r">▶</div>
         </div>
-
-        <div id="title" class="game-title">Dungeon Explorer</div>
-
-        <div class="timer-container">
-            <div id="progress" class="timer-bar"></div>
+        <div class="action-btns">
+            <div class="btn action-btn btn-interact" id="btn-i">USE</div>
+            <div class="btn action-btn btn-attack" id="btn-a">ATK</div>
         </div>
     </div>
 
     <script>
-        const cube = document.getElementById('cube');
-        const title = document.getElementById('title');
-        const progress = document.getElementById('progress');
-        const container = document.getElementById('intro-container');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-        // 15-Second Sequence Timings
-        progress.style.animation = 'timerFill 15s linear forwards';
+        canvas.width = 400;
+        canvas.height = 260;
 
-        // 1.0s - Cube rolls in & bounces
-        setTimeout(() => {
-            cube.style.animation = 'cubeRollIn 3.5s cubic-bezier(0.25, 1, 0.5, 1) forwards';
-        }, 1000);
+        // Game State
+        let score = 0;
+        let hp = 100;
+        let currentRegion = 0;
 
-        // 5.0s - Cube spins to show off all 4 regions
-        setTimeout(() => {
-            cube.style.animation = 'cubeSpinShowcase 6.5s ease-in-out forwards';
-        }, 5000);
+        const regions = [
+            { name: '🔥 VOLCANO', color: '#e74c3c', bg: '#1a0505' },
+            { name: '❄️ FROST', color: '#0984e3', bg: '#05131a' },
+            { name: '☣️ SWAMP', color: '#10ac84', bg: '#051a0e' },
+            { name: '💀 CRYPT', color: '#5f27cd', bg: '#12051a' }
+        ];
 
-        // 9.5s - Title drops in
-        setTimeout(() => {
-            title.style.animation = 'titleSlam 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
-        }, 9500);
+        // Player Object
+        const player = {
+            x: 50,
+            y: 110,
+            width: 16,
+            height: 16,
+            speed: 2,
+            color: '#f1c40f'
+        };
 
-        // 14.0s - Smooth fade out
-        setTimeout(() => {
-            container.style.animation = 'fadeOutAll 1s ease-out forwards';
-        }, 14000);
+        // Key/Touch State Tracking
+        const keys = { Up: false, Down: false, Left: false, Right: false };
 
-        // 15.0s - Complete
-        setTimeout(() => {
-            finishIntro();
-        }, 15000);
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => handleKey(e.key, true));
+        window.addEventListener('keyup', (e) => handleKey(e.key, false));
 
-        function finishIntro() {
-            container.style.animation = 'none';
-            container.innerHTML = '<h2 style="color: #2ecc71; letter-spacing: 2px; font-size: 24px; text-align: center;">TAP TO START</h2>';
+        function handleKey(key, isDown) {
+            if (['ArrowUp', 'w', 'W'].includes(key)) keys.Up = isDown;
+            if (['ArrowDown', 's', 'S'].includes(key)) keys.Down = isDown;
+            if (['ArrowLeft', 'a', 'A'].includes(key)) keys.Left = isDown;
+            if (['ArrowRight', 'd', 'D'].includes(key)) keys.Right = isDown;
         }
+
+        // Mobile Touch Listeners
+        function bindTouch(btnId, keyName) {
+            const btn = document.getElementById(btnId);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; btn.classList.add('active'); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; btn.classList.remove('active'); });
+            btn.addEventListener('mousedown', () => { keys[keyName] = true; btn.classList.add('active'); });
+            btn.addEventListener('mouseup', () => { keys[keyName] = false; btn.classList.remove('active'); });
+        }
+
+        bindTouch('btn-u', 'Up');
+        bindTouch('btn-d', 'Down');
+        bindTouch('btn-l', 'Left');
+        bindTouch('btn-r', 'Right');
+
+        // Action Buttons
+        document.getElementById('btn-a').addEventListener('click', attack);
+        document.getElementById('btn-i').addEventListener('click', switchRegion);
+
+        function attack() {
+            score += 10;
+            document.getElementById('score-val').innerText = score;
+        }
+
+        function switchRegion() {
+            currentRegion = (currentRegion + 1) % regions.length;
+            const reg = regions[currentRegion];
+            const tag = document.getElementById('region-tag');
+            tag.innerText = reg.name;
+            tag.style.background = reg.color;
+        }
+
+        // Game Loop
+        function update() {
+            if (keys.Up && player.y > 0) player.y -= player.speed;
+            if (keys.Down && player.y < canvas.height - player.height) player.y += player.speed;
+            if (keys.Left && player.x > 0) player.x -= player.speed;
+            if (keys.Right && player.x < canvas.width - player.width) player.x += player.speed;
+        }
+
+        function render() {
+            // Draw Map Background
+            ctx.fillStyle = regions[currentRegion].bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Grid Lines
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            for (let x = 0; x < canvas.width; x += 20) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 20) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Draw Player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function loop() {
+            update();
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
     </script>
 </body>
 </html>
