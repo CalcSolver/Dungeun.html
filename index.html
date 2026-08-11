@@ -1,1257 +1,551 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dungeon Explorer - Cave Runner & Hardcore Achievements</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body {
-            background-color: #08080c; color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 100vh; overflow: hidden;
-            touch-action: none;
-        }
-        #game-container {
-            position: relative; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.95);
-            border-radius: 8px; overflow: hidden; border: 3px solid #2a2a38;
-            touch-action: none;
-        }
-        canvas { display: block; background-color: #050508; cursor: crosshair; }
-        #ui {
-            position: absolute; top: 15px; left: 15px; right: 15px;
-            display: flex; justify-content: space-between; pointer-events: none;
-            font-size: 15px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.9); z-index: 5;
-        }
-        .bar-container {
-            width: 180px; height: 16px; background: rgba(0,0,0,0.8);
-            border: 2px solid #444; border-radius: 8px; overflow: hidden;
-        }
-        .hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); }
-        .xp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60); }
-        
-        #dungeons-hud {
-            position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
-            display: flex; align-items: center; gap: 10px;
-            background: rgba(18, 18, 26, 0.95); border: 3px solid #4a4a5a;
-            border-radius: 12px; padding: 8px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.8); z-index: 10;
-        }
-        .hud-slot {
-            width: 70px; height: 60px; background: #14141e;
-            border: 2px solid #38384a; border-radius: 8px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            position: relative; box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
-        }
-        .hud-slot.active-slot { border-color: #f1c40f; box-shadow: 0 0 10px rgba(241, 196, 15, 0.4); }
-        .hud-slot .slot-label { position: absolute; top: 2px; left: 4px; font-size: 8px; color: #888; font-weight: bold; }
-        .hud-slot .slot-value { font-size: 10px; font-weight: bold; color: #3498db; text-align: center; margin-top: 8px; }
-        .hud-slot .hotkey { position: absolute; bottom: 2px; right: 4px; font-size: 10px; color: #f1c40f; font-weight: bold; }
-
-        .modal {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(10, 10, 15, 0.95); display: none; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 20; padding: 20px;
-        }
-        .modal h2 { color: #f1c40f; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
-        .grid-container { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; max-width: 740px; margin-bottom: 15px; max-height: 380px; overflow-y: auto; padding: 5px; }
-        .card {
-            background: #1c1c26; border: 2px solid #38384a; border-radius: 8px;
-            padding: 10px; width: 135px; text-align: center; display: flex;
-            flex-direction: column; justify-content: space-between; align-items: center;
-        }
-        .card.locked { opacity: 0.4; filter: grayscale(1); }
-        .card h4 { color: #3498db; margin-bottom: 4px; font-size: 12px; }
-        .card p { font-size: 10px; color: #aaa; margin-bottom: 6px; }
-
-        .gacha-box {
-            background: #151520; border: 3px double #9b59b6; border-radius: 12px;
-            padding: 20px; text-align: center; width: 320px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.3);
-            margin-bottom: 15px;
-        }
-        .gacha-display {
-            font-size: 18px; font-weight: bold; height: 50px; display: flex;
-            align-items: center; justify-content: center; background: #0a0a10;
-            border-radius: 6px; border: 1px solid #333; margin: 10px 0; color: #f1c40f;
-        }
-
-        .diff-btn {
-            width: 180px; padding: 12px; margin: 6px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; border: none;
-        }
-
-        button {
-            padding: 6px 12px; font-size: 11px; font-weight: bold;
-            background: #3498db; color: white; border: none; border-radius: 4px;
-            cursor: pointer; transition: background 0.2s, transform 0.1s; pointer-events: auto;
-        }
-        button:hover { background: #2980b9; transform: scale(1.03); }
-        button:disabled { background: #444; cursor: not-allowed; transform: none; }
-
-        .chest-anim {
-            font-size: 60px; cursor: pointer; animation: bounce 0.6s infinite alternate; margin: 15px;
-        }
-        @keyframes bounce {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-15px); }
-        }
-        
-        .controls-hint { margin-top: 10px; color: #777; font-size: 13px; text-align: center; }
-
-        /* On-screen Mobile Controls */
-        #mobile-controls {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 15; display: block;
-        }
-        #joystick-zone {
-            position: absolute; bottom: 25px; left: 25px;
-            width: 120px; height: 120px; background: rgba(255, 255, 255, 0.08);
-            border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 50%;
-            pointer-events: auto; touch-action: none;
-        }
-        #joystick-knob {
-            position: absolute; top: 35px; left: 35px;
-            width: 50px; height: 50px; background: rgba(255, 255, 255, 0.35);
-            border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.6);
-            pointer-events: none; transition: transform 0.05s ease-out;
-        }
-        .action-btn-container {
-            position: absolute; bottom: 25px; right: 25px;
-            display: flex; gap: 12px; pointer-events: auto;
-        }
-        .touch-btn {
-            width: 60px; height: 60px; border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.4); background: rgba(0,0,0,0.5);
-            color: #fff; font-size: 22px; font-weight: bold;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); touch-action: none;
-        }
-        .touch-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.25); }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Region Quest - Full Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 10px;
+      background: #0f111a;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    #game-container {
+      position: relative;
+      border: 4px solid #2a2e3d;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      background: #181a24;
+    }
+    canvas {
+      display: block;
+      background: #111;
+    }
+    #ui-bar {
+      width: 100%;
+      background: #181a24;
+      border-top: 2px solid #2a2e3d;
+      padding: 10px 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+    }
+    .hud-element {
+      font-weight: bold;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .bar-bg {
+      width: 100px;
+      height: 12px;
+      background: #333;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #555;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      background: #ff3e3e;
+      transition: width 0.1s ease;
+    }
+    #log-box {
+      width: 800px;
+      margin-top: 10px;
+      padding: 12px;
+      background: #181a24;
+      border: 2px solid #2a2e3d;
+      border-radius: 6px;
+      color: #ffd700;
+      font-weight: 600;
+      font-size: 14px;
+      text-align: center;
+      min-height: 45px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .controls-hint {
+      margin-top: 8px;
+      color: #8a8f9d;
+      font-size: 12px;
+    }
+  </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <canvas id="canvas" width="800" height="600"></canvas>
-
-        <div id="ui">
-            <div>
-                <div style="font-size: 10px;">HEALTH</div>
-                <div class="bar-container"><div id="hp-bar" class="hp-bar"></div></div>
-                <div style="font-size: 10px; margin-top: 4px;">LEVEL <span id="level-num">1</span></div>
-                <div class="bar-container" style="height: 8px;"><div id="xp-bar" class="xp-bar"></div></div>
-            </div>
-            <div style="text-align: right;">
-                <div>COINS: <span id="coins" style="color: #f1c40f;">0</span></div>
-                <div id="diff-ui" style="font-size: 11px; color: #e74c3c; margin-top: 2px;">MODE: NORMAL</div>
-                <div id="region-ui" style="font-size: 12px; color: #2ecc71; margin-top: 2px;">REGION: GREEN REALM</div>
-            </div>
-        </div>
-
-        <div id="dungeons-hud">
-            <div class="hud-slot active-slot">
-                <span class="slot-label">WEAPON</span>
-                <span id="hud-weapon" class="slot-value">Rusty Sword</span>
-            </div>
-            <div class="hud-slot active-slot">
-                <span class="slot-label">SPECIAL</span>
-                <span id="hud-special" class="slot-value" style="color: #f1c40f;">None</span>
-            </div>
-            <div class="hud-slot" style="cursor: pointer;" onclick="usePotion()">
-                <span class="slot-label">POTION</span>
-                <span id="hud-potion" class="slot-value" style="color: #2ecc71;">x1</span>
-                <span class="hotkey">1</span>
-            </div>
-            <div class="hud-slot" style="cursor: pointer;" onclick="toggleInventory()">
-                <span class="slot-label">MENU</span>
-                <span class="slot-value" style="color: #f1c40f;">INVEN</span>
-                <span class="hotkey">E</span>
-            </div>
-        </div>
-
-        <!-- Mobile Touch Controls overlay -->
-        <div id="mobile-controls">
-            <div id="joystick-zone">
-                <div id="joystick-knob"></div>
-            </div>
-            <div class="action-btn-container">
-                <div id="btn-interact" class="touch-btn" style="border-color: #3498db; color: #3498db;">✋</div>
-                <div id="btn-attack" class="touch-btn" style="border-color: #e74c3c; color: #e74c3c; width: 70px; height: 70px;">⚔️</div>
-            </div>
-        </div>
-
-        <!-- Difficulty Selection Modal -->
-        <div id="diff-modal" class="modal" style="display: flex;">
-            <h2>Select Difficulty</h2>
-            <p style="color: #aaa; font-size: 12px; margin-bottom: 15px;">Higher difficulties yield more coins and rare loot!</p>
-            <button class="diff-btn" style="background: #2ecc71;" onclick="setDifficulty('adventure')">Adventure (Easy)</button>
-            <button class="diff-btn" style="background: #f39c12;" onclick="setDifficulty('normal')">Normal (Standard)</button>
-            <button class="diff-btn" style="background: #e74c3c;" onclick="setDifficulty('apocalypse')">Apocalypse (Hardcore)</button>
-        </div>
-
-        <!-- Inventory Modal -->
-        <div id="inv-modal" class="modal">
-            <h2>Inventory & Artifacts</h2>
-            <div class="grid-container" id="item-grid"></div>
-            <button onclick="toggleInventory()">Close (E)</button>
-        </div>
-
-        <!-- Achievements Modal -->
-        <div id="achievements-modal" class="modal">
-            <h2>Hardcore Achievements</h2>
-            <div id="achievements-list" class="grid-container"></div>
-            <button onclick="closeModal('achievements-modal')">Close</button>
-        </div>
-
-        <!-- Item Shop / Loot Board -->
-        <div id="shop-modal" class="modal">
-            <h2>Artifact Shop (30 Items)</h2>
-            <div id="shop-item-list" class="grid-container"></div>
-            <button onclick="closeModal('shop-modal')">Exit Shop</button>
-        </div>
-
-        <!-- Blacksmith Upgrade Modal -->
-        <div id="upgrade-modal" class="modal">
-            <h2>Blacksmith - Armor Upgrades</h2>
-            <div class="grid-container">
-                <div class="card">
-                    <h4>Upgrade Armor</h4>
-                    <p id="armor-upgrade-desc">+40 Max HP</p>
-                    <button id="buy-armor-btn" onclick="upgradeArmor()">Upgrade (<span id="armor-cost">80</span> Coins)</button>
-                </div>
-                <div class="card">
-                    <h4>Health Potion</h4>
-                    <p>Restores 50 HP</p>
-                    <button onclick="buyPotion()">Buy (35 Coins)</button>
-                </div>
-            </div>
-            <button onclick="closeModal('upgrade-modal')">Exit Blacksmith</button>
-        </div>
-
-        <!-- Enchanting Table (Gacha) -->
-        <div id="enchant-modal" class="modal">
-            <h2>Enchanting Altar (Gacha)</h2>
-            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">Roll the magical dice for powerful passive boosts!</p>
-            <div class="gacha-box">
-                <div id="gacha-display" class="gacha-display">Ready to Roll...</div>
-                <p id="gacha-desc" style="font-size: 11px; color: #aaa; margin-bottom: 12px;">Cost: 75 Coins per Roll</p>
-                <button id="roll-btn" style="background: #9b59b6; padding: 10px 20px; font-size: 13px;" onclick="spinGacha()">Roll Enchantment (75 C)</button>
-            </div>
-            <button onclick="closeModal('enchant-modal')">Leave Table</button>
-        </div>
-
-        <!-- Travel Harbor -->
-        <div id="boat-modal" class="modal">
-            <h2>Travel Harbor</h2>
-            <div id="region-list" class="grid-container"></div>
-            <button onclick="closeModal('boat-modal')">Stay Here</button>
-        </div>
-
-        <!-- Mission Board -->
-        <div id="mission-modal" class="modal">
-            <h2>Select Mission</h2>
-            <p style="margin-bottom: 10px; color: #aaa; font-size: 12px;">10 Maps available in this region!</p>
-            <div id="mission-list" class="grid-container"></div>
-            <button onclick="closeModal('mission-modal')">Cancel</button>
-        </div>
-
-        <!-- Mission Clear Victory Modal -->
-        <div id="victory-modal" class="modal">
-            <h2 style="color: #8e44ad;">CAVE CLEARED!</h2>
-            <div id="stats-tally" style="background: #151520; padding: 15px; border-radius: 8px; width: 300px; text-align: center; margin-bottom: 10px; font-size: 12px; line-height: 1.8;"></div>
-            <div id="achieve-banner" style="display:none; color: #f1c40f; font-weight: bold; margin-bottom: 10px;">🏆 HARDCORE ACHIEVEMENT UNLOCKED!</div>
-            <div id="chest-box" class="chest-anim" onclick="openRewardChest()">📦</div>
-            <p id="chest-prompt" style="color: #aaa; font-size: 11px; margin-bottom: 15px;">Click the Chest to Open!</p>
-            <button id="victory-exit-btn" style="display:none;" onclick="returnToLobby()">Return to Lobby</button>
-        </div>
-
-        <!-- Game Over Modal -->
-        <div id="game-over" class="modal">
-            <h2 id="go-title">DEFEATED</h2>
-            <p id="go-desc" style="margin-bottom: 20px; color: #aaa;"></p>
-            <button onclick="returnToLobby()">Respawn in Lobby</button>
-        </div>
+  <div id="game-container">
+    <canvas id="gameCanvas" width="800" height="480"></canvas>
+    <div id="ui-bar">
+      <div class="hud-element">
+        <span>PLAYER HP:</span>
+        <div class="bar-bg"><div id="player-hp-bar" class="bar-fill"></div></div>
+      </div>
+      <div class="hud-element" id="region-display">
+        <span>REGION:</span> <span id="region-name" style="color: #00E5FF;">Grassland</span>
+      </div>
+      <div class="hud-element">
+        <span>KEY:</span> <span id="key-status" style="color: #ff5555;">Locked 🔒</span>
+      </div>
     </div>
+  </div>
 
-    <div class="controls-hint">
-        <strong>Controls:</strong> WASD / Touch Joystick = Move | Click / ⚔️ Button = Attack | ✋ Button / F = Interact | 1 = Potion | E = Menu
-    </div>
+  <div id="log-box">Use WASD or ARROW KEYS to move. Press SPACEBAR to attack!</div>
+  <div class="controls-hint">Controls: WASD/Arrows = Walk | SPACE = Sword Attack | Walk into NPCs to talk</div>
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+<script>
+// ==========================================
+// GAME CONSTANTS & CONFIGURATION
+// ==========================================
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-        let locationState = 'lobby'; 
-        let currentRegion = 0; 
-        let unlockedMission = 1; 
-        let activeMission = 0;
-        let selectedDifficulty = 'normal';
-        let diffMultipliers = { adventure: 0.7, normal: 1.0, apocalypse: 1.8 };
-        let armorLevel = 1;
-        let isRolling = false;
+const logBox = document.getElementById("log-box");
+const regionNameEl = document.getElementById("region-name");
+const keyStatusEl = document.getElementById("key-status");
+const playerHpBar = document.getElementById("player-hp-bar");
 
-        let keys = {};
-        let mouse = { x: 400, y: 300 };
-        let lastTime = 0;
-        let coins = 100;
+// Global NPC Style Rule: ALL NPCs share this exact signature color
+const NPC_GLOBAL_COLOR = "#00E5FF";
 
-        let activeWeaponIdx = 0;
-        let activeEnchantment = null;
-        let equippedSpecialItem = null;
+// Sound/Effect Helper
+function log(msg) {
+  logBox.textContent = msg;
+}
 
-        // Run Metrics for Clear Screen & Achievements
-        let runTime = 0;
-        let enemiesKilledInRun = 0;
-        let initialEnemyCount = 0;
-        let secretsFoundInRun = 0;
-        let totalSecretsInRun = 0;
-        let gloveHighFives = 0;
-        let streakConsecutiveSecretRuns = 0;
-        let newlyUnlockedAchievement = false;
+// ==========================================
+// INPUT HANDLING
+// ==========================================
+const keys = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+  space: false,
+  spacePressed: false
+};
 
-        // Mobile Controls Variables
-        let joystickVector = { x: 0, y: 0 };
-        let joystickActive = false;
-        let touchTarget = { x: 400, y: 300 };
+window.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") keys.up = true;
+  if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") keys.down = true;
+  if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = true;
+  if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.right = true;
+  if (e.key === " " || e.key === "Spacebar") {
+    if (!keys.space) keys.spacePressed = true;
+    keys.space = true;
+  }
+});
 
-        // Hardcore Achievements Tracker
-        const ACHIEVEMENTS_DATABASE = [
-            { id: "pacifist", name: "Pacifist Explorer", desc: "Clear a cave without hitting or killing any enemies.", unlocked: false, reward: "Ghost Boots" },
-            { id: "speedrun", name: "Speed Demon", desc: "Reach the purple portal in under 45 seconds.", unlocked: false, reward: "Purple Trail" },
-            { id: "glove_friend", name: "Glove's Best Friend", desc: "High-five the Yellow Guide Hand 10 times in a single run.", unlocked: false, reward: "Giant Hand Shield" },
-            { id: "loot_goblin", name: "Loot Goblin", desc: "Discover every secret room chest in a cave mission.", unlocked: false, reward: "Golden Key" },
-            { id: "close_call", name: "Close Call Master", desc: "Enter the exit portal with under 15% HP remaining.", unlocked: false, reward: "Emergency Adrenaline" },
-            { id: "cartographer", name: "Map Cartographer", desc: "Explore all rooms in a cave system.", unlocked: false, reward: "Cave Radar" }
-        ];
+window.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") keys.up = false;
+  if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") keys.down = false;
+  if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
+  if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.right = false;
+  if (e.key === " " || e.key === "Spacebar") {
+    keys.space = false;
+    keys.spacePressed = false;
+  }
+});
 
-        const GACHA_POOL = [
-            { name: "Sharpness I", rarity: "Common", desc: "+15% Damage", color: "#bdc3c7", damageMultiplier: 1.15, chance: 45 },
-            { name: "Sharpness III", rarity: "Rare", desc: "+30% Damage", color: "#3498db", damageMultiplier: 1.30, chance: 30 },
-            { name: "Knockback II", rarity: "Rare", desc: "+20% Dmg & Pushback", color: "#3498db", damageMultiplier: 1.20, chance: 15 },
-            { name: "God Slayer", rarity: "Legendary", desc: "+60% Dmg", color: "#f1c40f", damageMultiplier: 1.60, chance: 7.5 },
-            { name: "WORLD BREAKER", rarity: "Mythic", desc: "+120% Dmg", color: "#e74c3c", damageMultiplier: 2.20, chance: 2.5 }
-        ];
+// ==========================================
+// PLAYER ENTITY
+// ==========================================
+const player = {
+  x: 60,
+  y: 220,
+  width: 28,
+  height: 28,
+  speed: 3.5,
+  color: "#FFEA00",
+  maxHp: 100,
+  hp: 100,
+  facing: "right",
+  isAttacking: false,
+  attackTimer: 0,
+  attackBox: { x: 0, y: 0, width: 30, height: 30 },
+  
+  reset(x, y) {
+    this.x = x;
+    this.y = y;
+    this.hp = this.maxHp;
+    this.isAttacking = false;
+  },
 
-        const ITEMS_DATABASE = [
-            { id: 1, name: "Wooden Shield", rarity: "Common", desc: "+20 Max HP", cost: 40, hpBonus: 20, type: "passive" },
-            { id: 2, name: "Minor Ring", rarity: "Common", desc: "+5% Attack Speed", cost: 45, type: "passive" },
-            { id: 3, name: "Iron Helm", rarity: "Common", desc: "+30 Max HP", cost: 60, hpBonus: 30, type: "passive" },
-            { id: 4, name: "Leather Boots", rarity: "Common", desc: "+10 Speed", cost: 50, speedBonus: 10, type: "passive" },
-            { id: 5, name: "Copper Charm", rarity: "Common", desc: "+5% Gold Gain", cost: 50, type: "passive" },
-            { id: 6, name: "Bandage Kit", rarity: "Common", desc: "+1 Potion Slot", cost: 40, type: "passive" },
-            { id: 7, name: "Silver Amulet", rarity: "Rare", desc: "+50 Max HP", cost: 120, hpBonus: 50, type: "passive" },
-            { id: 8, name: "Golden Gauntlet", rarity: "Rare", desc: "+15% Damage", cost: 150, type: "passive" },
-            { id: 9, name: "Swift Cloak", rarity: "Rare", desc: "+25 Speed", cost: 130, speedBonus: 25, type: "passive" },
-            { id: 10, name: "Spiked Collar", rarity: "Rare", desc: "Reflects small damage", cost: 140, type: "passive" },
-            { id: 11, name: "Focus Lens", rarity: "Rare", desc: "+10% Crit Chance", cost: 160, type: "passive" },
-            { id: 12, name: "Heavy Plating", rarity: "Rare", desc: "+80 Max HP", cost: 180, hpBonus: 80, type: "passive" },
-            { id: 13, name: "Soul Reaper", rarity: "Epic", desc: "Heals 8 HP per kill", cost: 350, type: "special", specialId: "soul_reaper" },
-            { id: 14, name: "Shadow Mask", rarity: "Epic", desc: "+30% Damage", cost: 320, type: "passive" },
-            { id: 15, name: "Phoenix Feather", rarity: "Epic", desc: "Speed surge under 30% HP", cost: 300, type: "passive" },
-            { id: 16, name: "Vampiric Ring", rarity: "Epic", desc: "Potions heal +30 HP", cost: 280, type: "passive" },
-            { id: 17, name: "Titan Greaves", rarity: "Epic", desc: "+120 Max HP", cost: 380, hpBonus: 120, type: "passive" },
-            { id: 18, name: "Berserker Core", rarity: "Epic", desc: "+40% Dmg, -20 HP", cost: 340, hpBonus: -20, type: "passive" },
-            { id: 19, name: "Totem of Undying", rarity: "Legendary", desc: "Revives once on death (+100 HP)", cost: 600, type: "special", specialId: "totem" },
-            { id: 20, name: "Dragon Heart", rarity: "Legendary", desc: "+200 Max HP", cost: 550, hpBonus: 200, type: "passive" },
-            { id: 21, name: "Crown of Midas", rarity: "Legendary", desc: "Doubles Gold drops", cost: 500, type: "passive" },
-            { id: 22, name: "Excalibur Crest", rarity: "Legendary", desc: "+60% Damage", cost: 620, type: "passive" },
-            { id: 23, name: "Aegis Shield", rarity: "Legendary", desc: "Blocks 20% of incoming hits", cost: 580, type: "passive" },
-            { id: 24, name: "Chronos Watch", rarity: "Legendary", desc: "Slower enemy projectiles", cost: 520, type: "passive" },
-            { id: 25, name: "Orb of Infinity", rarity: "Mythic", desc: "+100% Damage & +150 HP", cost: 1200, hpBonus: 150, type: "passive" },
-            { id: 26, name: "Demon Crown", rarity: "Mythic", desc: "Kills trigger shockwaves", cost: 1100, type: "passive" },
-            { id: 27, name: "Celestial Pendant", rarity: "Mythic", desc: "Full restore upon stage clear", cost: 1000, type: "passive" },
-            { id: 28, name: "Void Mantle", rarity: "Mythic", desc: "+300 Max HP", cost: 1250, hpBonus: 300, type: "passive" },
-            { id: 29, name: "Grimoire of Doom", rarity: "Mythic", desc: "+150% Damage", cost: 1400, type: "passive" },
-            { id: 30, name: "God Eye", rarity: "Mythic", desc: "Reveals map & +500 HP", cost: 2000, hpBonus: 500, type: "passive" }
-        ];
+  update() {
+    let dx = 0;
+    let dy = 0;
 
-        let ownedItems = [];
+    if (keys.up) { dy -= this.speed; this.facing = "up"; }
+    if (keys.down) { dy += this.speed; this.facing = "down"; }
+    if (keys.left) { dx -= this.speed; this.facing = "left"; }
+    if (keys.right) { dx += this.speed; this.facing = "right"; }
 
-        const WEAPONS = [
-            { name: "Rusty Sword", type: "sword", damage: 25, cd: 0.25, price: 0, range: 50, color: "#95a5a6" },
-            { name: "Iron Broadsword", type: "sword", damage: 40, cd: 0.25, price: 120, range: 55, color: "#bdc3c7" },
-            { name: "Hunting Bow", type: "bow", damage: 35, cd: 0.45, price: 180, range: 350, color: "#d35400" },
-            { name: "Flame Blade", type: "sword", damage: 130, cd: 0.22, price: 850, range: 60, color: "#e74c3c" },
-            { name: "Obsidian Crusher", type: "heavy", damage: 260, cd: 1.10, price: 1100, range: 85, color: "#111119" }
-        ];
+    // Check X movement collision
+    let nextX = this.x + dx;
+    if (!checkWallCollision(nextX, this.y, this.width, this.height)) {
+      this.x = nextX;
+    }
 
-        const player = {
-            x: 400, y: 300, radius: 15, speed: 190,
-            maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 300,
-            attackTimer: 0, facingAngle: 0, potions: 1
-        };
+    // Check Y movement collision
+    let nextY = this.y + dy;
+    if (!checkWallCollision(this.x, nextY, this.width, this.height)) {
+      this.y = nextY;
+    }
 
-        const REGIONS = [
-            { name: "Green Realm", color: "#2ecc71", bgTile: "#1e3323" },
-            { name: "Desert Realm", color: "#f39c12", bgTile: "#3d3019" },
-            { name: "Volcano Realm", color: "#e74c3c", bgTile: "#361919" },
-            { name: "Ice Realm", color: "#3498db", bgTile: "#192d3d" }
-        ];
+    // Keep within Screen Bounds
+    this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+    this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
 
-        const MISSIONS = {};
-        for (let r = 0; r < 4; r++) {
-            for (let m = 1; m <= 10; m++) {
-                const globalIdx = (r * 10) + m;
-                MISSIONS[globalIdx] = {
-                    region: r, name: `${REGIONS[r].name} - Cave ${m}`,
-                    enemies: 6 + (m * 2), difficulty: 0.8 + (r * 0.4) + (m * 0.05),
-                    reward: 40 + (globalIdx * 10), xpReward: 100
-                };
-            }
+    // Attack Trigger
+    if (keys.spacePressed && !this.isAttacking) {
+      this.isAttacking = true;
+      this.attackTimer = 12; // attack duration frames
+      keys.spacePressed = false;
+    }
+
+    if (this.isAttacking) {
+      this.attackTimer--;
+      if (this.attackTimer <= 0) {
+        this.isAttacking = false;
+      }
+    }
+
+    // Update Attack Hitbox Coordinates based on facing direction
+    if (this.facing === "right") {
+      this.attackBox = { x: this.x + this.width, y: this.y - 4, width: 24, height: 36 };
+    } else if (this.facing === "left") {
+      this.attackBox = { x: this.x - 24, y: this.y - 4, width: 24, height: 36 };
+    } else if (this.facing === "up") {
+      this.attackBox = { x: this.x - 4, y: this.y - 24, width: 36, height: 24 };
+    } else if (this.facing === "down") {
+      this.attackBox = { x: this.x - 4, y: this.y + this.height, width: 36, height: 24 };
+    }
+
+    // Update UI Bar
+    const hpPercent = Math.max(0, (this.hp / this.maxHp) * 100);
+    playerHpBar.style.width = hpPercent + "%";
+  },
+
+  draw() {
+    // Attack Swing Effect
+    if (this.isAttacking) {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.fillRect(this.attackBox.x, this.attackBox.y, this.attackBox.width, this.attackBox.height);
+    }
+
+    // Main Player Body
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+
+    // Direction Eye Indicator
+    ctx.fillStyle = "#000";
+    if (this.facing === "right") ctx.fillRect(this.x + 20, this.y + 6, 5, 5);
+    if (this.facing === "left") ctx.fillRect(this.x + 3, this.y + 6, 5, 5);
+    if (this.facing === "up") ctx.fillRect(this.x + 11, this.y + 3, 6, 5);
+    if (this.facing === "down") ctx.fillRect(this.x + 11, this.y + 20, 6, 5);
+  }
+};
+
+// ==========================================
+// REGIONS & WORLD MAP DATA
+// ==========================================
+let currentRegionId = 1;
+let highestUnlockedRegion = 1;
+
+const regions = {
+  1: {
+    name: "Grassland Haven",
+    bg: "#1e3d20",
+    spawnX: 50,
+    spawnY: 220,
+    walls: [
+      { x: 180, y: 0, w: 30, h: 300 },
+      { x: 180, y: 380, w: 30, h: 100 },
+      { x: 420, y: 100, w: 30, h: 380 },
+      { x: 300, y: 220, w: 120, h: 30 }
+    ],
+    npcs: [
+      { x: 100, y: 100, w: 26, h: 26, name: "Guide Pip", dialogue: "Defeat the Red Golem at the east gate to unlock Region 2!" },
+      { x: 100, y: 360, w: 26, h: 26, name: "Scout Ray", dialogue: "Stay away from the walls, you can't walk through solid stone!" }
+    ],
+    boss: {
+      x: 650,
+      y: 200,
+      w: 48,
+      h: 48,
+      name: "Grassland Golem",
+      color: "#ff3333",
+      maxHp: 60,
+      hp: 60,
+      speed: 1.2,
+      defeated: false
+    },
+    gate: { x: 760, y: 180, w: 40, h: 120, leadsTo: 2 }
+  },
+  2: {
+    name: "Volcano Caldera",
+    bg: "#4a1515",
+    spawnX: 60,
+    spawnY: 220,
+    walls: [
+      { x: 220, y: 100, w: 360, h: 30 },
+      { x: 220, y: 320, w: 360, h: 30 },
+      { x: 380, y: 130, w: 40, h: 190 }
+    ],
+    npcs: [
+      { x: 100, y: 380, w: 26, h: 26, name: "Lava Hermit", dialogue: "The Obsidian Dragon in this region is ruthless! Use SPACE to attack!" }
+    ],
+    boss: {
+      x: 660,
+      y: 200,
+      w: 56,
+      h: 56,
+      name: "Obsidian Dragon",
+      color: "#d500f9",
+      maxHp: 120,
+      hp: 120,
+      speed: 1.8,
+      defeated: false
+    },
+    gate: { x: 760, y: 180, w: 40, h: 120, leadsTo: 3 }
+  },
+  3: {
+    name: "Frost Citadel",
+    bg: "#102a43",
+    spawnX: 60,
+    spawnY: 220,
+    walls: [
+      { x: 150, y: 0, w: 30, h: 200 },
+      { x: 150, y: 280, w: 30, h: 200 },
+      { x: 500, y: 0, w: 30, h: 200 },
+      { x: 500, y: 280, w: 30, h: 200 }
+    ],
+    npcs: [
+      { x: 80, y: 80, w: 26, h: 26, name: "Frost Guard", dialogue: "You made it to the final realm! Defeat the Frost King to win!" }
+    ],
+    boss: {
+      x: 640,
+      y: 210,
+      w: 60,
+      h: 60,
+      name: "Frost King",
+      color: "#00e676",
+      maxHp: 200,
+      hp: 200,
+      speed: 2.2,
+      defeated: false
+    },
+    gate: { x: 760, y: 180, w: 40, h: 120, leadsTo: null }
+  }
+};
+
+// ==========================================
+// COLLISION DETECTOR (RECTANGLE OVERLAP)
+// ==========================================
+function intersects(r1, r2) {
+  return !(
+    r2.x >= r1.x + r1.w ||
+    r2.x + r2.w <= r1.x ||
+    r2.y >= r1.y + r1.h ||
+    r2.y + r2.h <= r1.y
+  );
+}
+
+// Checks if a given rectangle collides with any walls in current region
+function checkWallCollision(x, y, w, h) {
+  const currentWalls = regions[currentRegionId].walls;
+  const box = { x: x, y: y, w: w, h: h };
+
+  for (let wall of currentWalls) {
+    if (intersects(box, wall)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ==========================================
+// GAME LOGIC & UPDATE LOOP
+// ==========================================
+function updateGame() {
+  const reg = regions[currentRegionId];
+  
+  // Update Player Position & Actions
+  player.update();
+
+  // NPC Interaction Check
+  const playerBox = { x: player.x, y: player.y, w: player.width, h: player.height };
+  for (let npc of reg.npcs) {
+    if (intersects(playerBox, npc)) {
+      log(`💬 ${npc.name}: "${npc.dialogue}"`);
+    }
+  }
+
+  // Boss Logic
+  const boss = reg.boss;
+  if (!boss.defeated) {
+    const bossBox = { x: boss.x, y: boss.y, w: boss.w, h: boss.h };
+
+    // Boss Simple Chase AI
+    if (player.x < boss.x) boss.x -= boss.speed * 0.5;
+    if (player.x > boss.x) boss.x += boss.speed * 0.5;
+    if (player.y < boss.y) boss.y -= boss.speed * 0.5;
+    if (player.y > boss.y) boss.y += boss.speed * 0.5;
+
+    // Check Player Attacking Boss
+    if (player.isAttacking) {
+      const attackBoxRect = { x: player.attackBox.x, y: player.attackBox.y, w: player.attackBox.width, h: player.attackBox.height };
+      if (intersects(attackBoxRect, bossBox)) {
+        boss.hp -= 2;
+        // Knockback Boss slightly
+        if (player.facing === "right") boss.x += 8;
+        if (player.facing === "left") boss.x -= 8;
+        if (player.facing === "up") boss.y -= 8;
+        if (player.facing === "down") boss.y += 8;
+
+        log(`⚔️ You hit ${boss.name}! Boss HP: ${Math.max(0, boss.hp)}/${boss.maxHp}`);
+
+        if (boss.hp <= 0) {
+          boss.defeated = true;
+          if (reg.gate.leadsTo) {
+            highestUnlockedRegion = Math.max(highestUnlockedRegion, reg.gate.leadsTo);
+            log(`🎉 ${boss.name} DEFEATED! Region ${reg.gate.leadsTo} gate is now UNLOCKED!`);
+          } else {
+            log(`🏆 YOU DEFEATED THE FINAL BOSS! YOU WIN THE GAME!`);
+          }
         }
+      }
+    }
+
+    // Boss Collides with Player (Damage Player)
+    if (intersects(playerBox, bossBox)) {
+      player.hp -= 0.8;
+      log(`🔥 ${boss.name} hits you! HP remaining: ${Math.ceil(player.hp)}`);
+      
+      if (player.hp <= 0) {
+        log(`☠️ You died! Respawning at region start...`);
+        player.reset(reg.spawnX, reg.spawnY);
+      }
+    }
+  }
+
+  // Region Gate Transition Check
+  const gate = reg.gate;
+  if (intersects(playerBox, gate)) {
+    if (!boss.defeated) {
+      log(`🔒 GATE LOCKED! You must defeat ${boss.name} to enter the next region!`);
+      player.x -= 10; // Push player back from gate
+    } else if (gate.leadsTo) {
+      currentRegionId = gate.leadsTo;
+      const nextReg = regions[currentRegionId];
+      player.reset(nextReg.spawnX, nextReg.spawnY);
+      log(`🌌 Entered ${nextReg.name}! Defeat the local boss to proceed!`);
+    } else {
+      log(`✨ You have cleared every region in the realm! Victory!`);
+    }
+  }
+
+  // Update UI Elements
+  regionNameEl.textContent = reg.name;
+  if (boss.defeated) {
+    keyStatusEl.textContent = "Unlocked 🔓";
+    keyStatusEl.style.color = "#00E676";
+  } else {
+    keyStatusEl.textContent = "Locked 🔒";
+    keyStatusEl.style.color = "#ff5555";
+  }
+}
+
+// ==========================================
+// RENDER / DRAW LOOP
+// ==========================================
+function drawGame() {
+  const reg = regions[currentRegionId];
+
+  // 1. Draw Background
+  ctx.fillStyle = reg.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 2. Draw Walls (Impassable obstacles)
+  ctx.fillStyle = "#2a2e3d";
+  for (let wall of reg.walls) {
+    ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+    // Wall border highlight
+    ctx.strokeStyle = "#444b63";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(wall.x, wall.y, wall.w, wall.h);
+  }
+
+  // 3. Draw Gate / Portal
+  const boss = reg.boss;
+  ctx.fillStyle = boss.defeated ? "#00E676" : "#ff3333";
+  ctx.fillRect(reg.gate.x, reg.gate.y, reg.gate.w, reg.gate.h);
+  
+  ctx.fillStyle = "#fff";
+  ctx.font = "10px sans-serif";
+  ctx.fillText(boss.defeated ? "EXIT" : "LOCKED", reg.gate.x + 2, reg.gate.y + 60);
+
+  // 4. Draw NPCs (UNIFIED NPC COLOR IMPLEMENTATION)
+  for (let npc of reg.npcs) {
+    ctx.fillStyle = NPC_GLOBAL_COLOR; // Single source of truth for NPC color
+    ctx.fillRect(npc.x, npc.y, npc.w, npc.h);
+
+    // NPC Label
+    ctx.fillStyle = "#fff";
+    ctx.font = "11px sans-serif";
+    ctx.fillText(npc.name, npc.x - 10, npc.y - 6);
+  }
+
+  // 5. Draw Boss (If active)
+  if (!boss.defeated) {
+    ctx.fillStyle = boss.color;
+    ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+
+    // Boss Name
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText(boss.name, boss.x - 10, boss.y - 12);
+
+    // Boss HP Bar above head
+    const hpRatio = Math.max(0, boss.hp / boss.maxHp);
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(boss.x, boss.y - 8, boss.w, 5);
+    ctx.fillStyle = "#ff3333";
+    ctx.fillRect(boss.x, boss.y - 8, boss.w * hpRatio, 5);
+  }
+
+  // 6. Draw Player
+  player.draw();
+}
+
+// ==========================================
+// MAIN LOOP ENGINE
+// ==========================================
+function gameLoop() {
+  updateGame();
+  drawGame();
+  requestAnimationFrame(gameLoop);
+}
+
+// Start Game
+log(`Welcome! Move with WASD/Arrows and defeat the ${regions[1].boss.name} to unlock Region 2!`);
+gameLoop();
+</script>
 
-        let enemies = [];
-        let playerProjectiles = [];
-        let enemyProjectiles = [];
-        let floatingTexts = [];
-        let interactables = [];
-        let rooms = [];
-        let tunnels = [];
-        let guideHand = { x: 0, y: 0, targetX: 0, targetY: 0 };
-        let curMapSize = { width: 1600, height: 1200 };
-        const camera = { x: 0, y: 0 };
-
-        function setDifficulty(diff) {
-            selectedDifficulty = diff;
-            document.getElementById('diff-modal').style.display = 'none';
-            setupLobby();
-        }
-
-        function saveGame() {
-            const data = { coins, unlockedMission, currentRegion, ownedItems, activeWeaponIdx, equippedSpecialItem, armorLevel, activeEnchantment, playerLevel: player.level, playerXP: player.xp, playerXpToNext: player.xpToNext, potions: player.potions, achievements: ACHIEVEMENTS_DATABASE };
-            localStorage.setItem('dungeon_apocalypse_save', JSON.stringify(data));
-        }
-
-        function loadGame() {
-            const raw = localStorage.getItem('dungeon_apocalypse_save');
-            if (!raw) return;
-            try {
-                const data = JSON.parse(raw);
-                coins = data.coins ?? coins;
-                unlockedMission = data.unlockedMission ?? unlockedMission;
-                currentRegion = data.currentRegion ?? currentRegion;
-                ownedItems = data.ownedItems ?? [];
-                activeWeaponIdx = data.activeWeaponIdx ?? 0;
-                equippedSpecialItem = data.equippedSpecialItem ?? null;
-                armorLevel = data.armorLevel ?? 1;
-                activeEnchantment = data.activeEnchantment ?? null;
-                player.level = data.playerLevel ?? 1;
-                player.xp = data.playerXP ?? 0;
-                player.xpToNext = data.playerXpToNext ?? 300;
-                player.potions = data.potions ?? 1;
-                if (data.achievements) {
-                    data.achievements.forEach(savedA => {
-                        const target = ACHIEVEMENTS_DATABASE.find(a => a.id === savedA.id);
-                        if (target) target.unlocked = savedA.unlocked;
-                    });
-                }
-                recalcStats();
-            } catch(e) {}
-        }
-
-        function recalcStats() {
-            let extraHp = 0;
-            ownedItems.forEach(id => {
-                const item = ITEMS_DATABASE.find(i => i.id === id);
-                if (item && item.hpBonus) extraHp += item.hpBonus;
-            });
-            player.maxHp = 100 + extraHp + ((armorLevel - 1) * 40) + ((player.level - 1) * 20);
-            player.hp = Math.min(player.hp, player.maxHp);
-        }
-
-        window.addEventListener('keydown', e => {
-            const k = e.key.toLowerCase();
-            keys[k] = true;
-            if (k === 'e') toggleInventory();
-            if (k === 'f') interactWithNearby();
-            if (k === '1') usePotion();
-            if (e.code === 'Space') performAttack();
-        });
-        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
-        canvas.addEventListener('mousemove', e => {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top;
-        });
-        canvas.addEventListener('mousedown', e => { 
-            if (e.button === 0) {
-                // High-five guide hand check
-                if (locationState === 'dungeon') {
-                    const worldMx = mouse.x + camera.x;
-                    const worldMy = mouse.y + camera.y;
-                    if (Math.hypot(worldMx - guideHand.x, worldMy - guideHand.y) < 35) {
-                        gloveHighFives++;
-                        addFloatingText(guideHand.x, guideHand.y - 20, "HIGH FIVE! ✋", "#f1c40f", 18);
-                        return;
-                    }
-                }
-                performAttack(); 
-            }
-        });
-
-        // Setup Touch / Mobile Controls
-        function initMobileControls() {
-            const joyZone = document.getElementById('joystick-zone');
-            const joyKnob = document.getElementById('joystick-knob');
-            const btnAttack = document.getElementById('btn-attack');
-            const btnInteract = document.getElementById('btn-interact');
-
-            const joyCenter = { x: 60, y: 60 };
-            const maxRadius = 45;
-
-            joyZone.addEventListener('touchstart', handleJoyTouch, { passive: false });
-            joyZone.addEventListener('touchmove', handleJoyTouch, { passive: false });
-            joyZone.addEventListener('touchend', resetJoy, { passive: false });
-            joyZone.addEventListener('touchcancel', resetJoy, { passive: false });
-
-            function handleJoyTouch(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const rect = joyZone.getBoundingClientRect();
-                let dx = touch.clientX - (rect.left + joyCenter.x);
-                let dy = touch.clientY - (rect.top + joyCenter.y);
-                let dist = Math.hypot(dx, dy);
-
-                if (dist > maxRadius) {
-                    dx = (dx / dist) * maxRadius;
-                    dy = (dy / dist) * maxRadius;
-                }
-
-                joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-                joystickVector.x = dx / maxRadius;
-                joystickVector.y = dy / maxRadius;
-                joystickActive = true;
-            }
-
-            function resetJoy(e) {
-                e.preventDefault();
-                joyKnob.style.transform = `translate(0px, 0px)`;
-                joystickVector = { x: 0, y: 0 };
-                joystickActive = false;
-            }
-
-            btnAttack.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                performAttack();
-            }, { passive: false });
-
-            btnInteract.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                interactWithNearby();
-            }, { passive: false });
-        }
-
-        function setupLobby() {
-            locationState = 'lobby';
-            curMapSize = { width: 1200, height: 900 };
-            player.x = 600; player.y = 450;
-            player.hp = player.maxHp;
-            enemies = []; playerProjectiles = []; enemyProjectiles = []; interactables = []; rooms = []; tunnels = [];
-
-            interactables.push({ x: 200, y: 350, radius: 25, type: 'shop', label: 'Artifact Shop (F)' });
-            interactables.push({ x: 380, y: 350, radius: 25, type: 'enchant', label: 'Gacha Enchant (F)' });
-            interactables.push({ x: 560, y: 350, radius: 25, type: 'upgrade', label: 'Blacksmith (F)' });
-            interactables.push({ x: 740, y: 350, radius: 25, type: 'mission_board', label: 'Missions (F)' });
-            interactables.push({ x: 920, y: 350, radius: 25, type: 'achievements', label: 'Achievements (F)' });
-            interactables.push({ x: 600, y: 750, radius: 30, type: 'boat', label: 'Travel Boat (F)' });
-            updateUI();
-        }
-
-        // Multi-Room Cave System Generator
-        function buildCaveSystem(config) {
-            rooms = []; tunnels = [];
-            const roomCount = 6;
-            curMapSize = { width: 1800, height: 1400 };
-
-            // Generate 6 interconnected cave chambers
-            const gridCols = 3, gridRows = 2;
-            for (let r = 0; r < gridRows; r++) {
-                for (let c = 0; c < gridCols; c++) {
-                    const rx = (c * 500) + 100 + Math.random() * 80;
-                    const ry = (r * 500) + 100 + Math.random() * 80;
-                    const rw = 260 + Math.random() * 80;
-                    const rh = 220 + Math.random() * 80;
-                    rooms.push({ x: rx, y: ry, w: rw, h: rh, isSecret: false, visited: false });
-                }
-            }
-
-            // Designate room 5 as Secret Room
-            rooms[4].isSecret = true;
-
-            // Connect Rooms with Tunnels
-            for (let i = 0; i < rooms.length - 1; i++) {
-                tunnels.push({
-                    x1: rooms[i].x + rooms[i].w / 2, y1: rooms[i].y + rooms[i].h / 2,
-                    x2: rooms[i+1].x + rooms[i+1].w / 2, y2: rooms[i+1].y + rooms[i+1].h / 2
-                });
-            }
-
-            // Spawn Start, Exit, Chests, and Hazards
-            const startRoom = rooms[0];
-            player.x = startRoom.x + startRoom.w / 2;
-            player.y = startRoom.y + startRoom.h / 2;
-
-            const exitRoom = rooms[rooms.length - 1];
-            interactables.push({
-                x: exitRoom.x + exitRoom.w / 2, y: exitRoom.y + exitRoom.h / 2,
-                radius: 30, type: 'portal', active: true, label: 'Purple Portal Exit'
-            });
-
-            // Secret Chests
-            totalSecretsInRun = 0;
-            rooms.forEach((rm, idx) => {
-                if (rm.isSecret || idx === 3) {
-                    totalSecretsInRun++;
-                    interactables.push({
-                        x: rm.x + rm.w / 2, y: rm.y + rm.h / 2,
-                        radius: 18, type: 'chest', opened: false, label: rm.isSecret ? 'Secret Chest (F)' : 'Cave Chest (F)'
-                    });
-                }
-            });
-
-            // Desert Temple Hazards in Desert Region
-            if (config.region === 1) {
-                const tRoom = rooms[2];
-                interactables.push({ x: tRoom.x + tRoom.w / 2, y: tRoom.y + tRoom.h / 2, radius: 15, type: 'tnt', primed: false, label: 'TNT Trap' });
-            }
-
-            // Enemies with FOV stealth angles
-            const diffMod = diffMultipliers[selectedDifficulty];
-            enemies = [];
-            rooms.forEach((rm, idx) => {
-                if (idx === 0) return; // Spawn room is safe
-                const count = Math.round(2 * config.difficulty * diffMod);
-                for (let e = 0; e < count; e++) {
-                    enemies.push({
-                        x: rm.x + 40 + Math.random() * (rm.w - 80),
-                        y: rm.y + 40 + Math.random() * (rm.h - 80),
-                        radius: 16, hp: Math.round(45 * config.difficulty * diffMod),
-                        maxHp: Math.round(45 * config.difficulty * diffMod),
-                        damage: Math.round(4.5 * config.difficulty * diffMod),
-                        speed: 60 * diffMod, angle: Math.random() * Math.PI * 2,
-                        color: REGIONS[config.region].color, aggroRange: 220, fovAngle: Math.PI / 3
-                    });
-                }
-            });
-
-            initialEnemyCount = enemies.length;
-        }
-
-        function startMission(mNum) {
-            if (mNum > unlockedMission) return;
-            activeMission = mNum;
-            const config = MISSIONS[mNum];
-            locationState = 'dungeon';
-            closeModal('mission-modal');
-
-            // Reset Metrics
-            runTime = 0;
-            enemiesKilledInRun = 0;
-            secretsFoundInRun = 0;
-            gloveHighFives = 0;
-            newlyUnlockedAchievement = false;
-
-            playerProjectiles = []; enemyProjectiles = []; interactables = [];
-            buildCaveSystem(config);
-            updateUI();
-        }
-
-        function interactWithNearby() {
-            interactables.forEach(obj => {
-                if (Math.hypot(player.x - obj.x, player.y - obj.y) < player.radius + obj.radius + 25) {
-                    if (obj.type === 'shop') openShop();
-                    if (obj.type === 'enchant') openModal('enchant-modal');
-                    if (obj.type === 'upgrade') openModal('upgrade-modal');
-                    if (obj.type === 'mission_board') openMissionBoard();
-                    if (obj.type === 'achievements') openAchievementsBoard();
-                    if (obj.type === 'boat') openBoatHarbor();
-                    if (obj.type === 'chest' && !obj.opened) {
-                        obj.opened = true;
-                        secretsFoundInRun++;
-                        const drop = 50 + (activeMission * 8);
-                        coins += drop;
-                        addFloatingText(obj.x, obj.y - 20, `+${drop} Coins!`, '#f1c40f', 18);
-                        saveGame(); updateUI();
-                    }
-                    if (obj.type === 'tnt' && !obj.primed) {
-                        obj.primed = true;
-                        addFloatingText(obj.x, obj.y - 20, 'TNT PRIMED! RUN!', '#e74c3c', 20);
-                        setTimeout(() => explodeTNT(obj.x, obj.y), 1500);
-                    }
-                    if (obj.type === 'portal' && obj.active) triggerMissionClear();
-                }
-            });
-        }
-
-        function triggerMissionClear() {
-            locationState = 'clear_screen';
-            
-            // Evaluate Achievements
-            checkAchievements();
-
-            const config = MISSIONS[activeMission];
-            coins += config.reward;
-            gainXP(config.xpReward);
-            if (activeMission === unlockedMission && unlockedMission < 40) unlockedMission++;
-
-            // Render Stats Tally
-            const tally = document.getElementById('stats-tally');
-            tally.innerHTML = `
-                <p>⏱️ Clear Time: <strong>${Math.round(runTime)}s</strong></p>
-                <p>⚔️ Enemies Slain: <strong>${enemiesKilledInRun} / ${initialEnemyCount}</strong></p>
-                <p>🔍 Secrets Found: <strong>${secretsFoundInRun} / ${totalSecretsInRun}</strong></p>
-                <p>✋ High Fives with Glove-y: <strong>${gloveHighFives}</strong></p>
-            `;
-
-            document.getElementById('achieve-banner').style.display = newlyUnlockedAchievement ? 'block' : 'none';
-            document.getElementById('chest-box').style.display = 'block';
-            document.getElementById('chest-prompt').style.display = 'block';
-            document.getElementById('victory-exit-btn').style.display = 'none';
-
-            openModal('victory-modal');
-            saveGame();
-        }
-
-        function checkAchievements() {
-            let hitAchieve = false;
-            // Pacifist
-            if (enemiesKilledInRun === 0 && initialEnemyCount > 0) unlockAchievement('pacifist');
-            // Speed Demon
-            if (runTime <= 45) unlockAchievement('speedrun');
-            // Glove Friend
-            if (gloveHighFives >= 10) unlockAchievement('glove_friend');
-            // Loot Goblin
-            if (secretsFoundInRun >= totalSecretsInRun && totalSecretsInRun > 0) unlockAchievement('loot_goblin');
-            // Close Call Master
-            if ((player.hp / player.maxHp) <= 0.15) unlockAchievement('close_call');
-            // Map Cartographer
-            const visitedRooms = rooms.filter(r => r.visited).length;
-            if (visitedRooms >= rooms.length && rooms.length > 0) unlockAchievement('cartographer');
-        }
-
-        function unlockAchievement(achId) {
-            const target = ACHIEVEMENTS_DATABASE.find(a => a.id === achId);
-            if (target && !target.unlocked) {
-                target.unlocked = true;
-                newlyUnlockedAchievement = true;
-            }
-        }
-
-        function openRewardChest() {
-            document.getElementById('chest-box').style.display = 'none';
-            document.getElementById('chest-prompt').style.display = 'none';
-            document.getElementById('victory-exit-btn').style.display = 'block';
-            const bonusCoins = 100 + Math.floor(Math.random() * 150);
-            coins += bonusCoins;
-            addFloatingText(player.x, player.y - 50, `LOOT CHEST: +${bonusCoins} COINS!`, '#f1c40f', 22);
-            saveGame(); updateUI();
-        }
-
-        function explodeTNT(tx, ty) {
-            enemies.forEach(e => {
-                if (Math.hypot(e.x - tx, e.y - ty) < 160) e.hp -= 200;
-            });
-            if (Math.hypot(player.x - tx, player.y - ty) < 160) {
-                player.hp -= 40;
-                addFloatingText(player.x, player.y - 20, '-40 HP (TNT BLAST)', '#e74c3c', 18);
-            }
-        }
-
-        function performAttack() {
-            if (player.attackTimer > 0) return;
-            const w = WEAPONS[activeWeaponIdx];
-            let dmg = w.damage;
-            if (activeEnchantment) dmg *= activeEnchantment.damageMultiplier;
-
-            player.attackTimer = w.cd;
-
-            if (w.type === 'bow') {
-                const angle = player.facingAngle;
-                playerProjectiles.push({
-                    x: player.x, y: player.y,
-                    vx: Math.cos(angle) * 450, vy: Math.sin(angle) * 450,
-                    damage: dmg, radius: 5, color: '#f39c12', lifetime: 1.2
-                });
-            } else {
-                // Swing / Heavy Arc
-                enemies.forEach(e => {
-                    const dist = Math.hypot(e.x - player.x, e.y - player.y);
-                    if (dist <= w.range + e.radius) {
-                        e.hp -= dmg;
-                        addFloatingText(e.x, e.y - 10, `-${Math.round(dmg)}`, '#e74c3c', 14);
-                        if (e.hp <= 0) {
-                            enemiesKilledInRun++;
-                            coins += 15;
-                            gainXP(25);
-                        }
-                    }
-                });
-            }
-        }
-
-        function usePotion() {
-            if (player.potions > 0 && player.hp < player.maxHp) {
-                player.potions--;
-                player.hp = Math.min(player.maxHp, player.hp + 50);
-                addFloatingText(player.x, player.y - 20, '+50 HP', '#2ecc71', 18);
-                updateUI();
-            }
-        }
-
-        function gainXP(amt) {
-            player.xp += amt;
-            if (player.xp >= player.xpToNext) {
-                player.xp -= player.xpToNext;
-                player.level++;
-                player.xpToNext = Math.round(player.xpToNext * 1.4);
-                recalcStats();
-                player.hp = player.maxHp;
-                addFloatingText(player.x, player.y - 35, 'LEVEL UP!', '#f1c40f', 24);
-            }
-            updateUI();
-        }
-
-        // Gacha / Enchanting System
-        function spinGacha() {
-            if (isRolling || coins < 75) return;
-            coins -= 75;
-            isRolling = true;
-            document.getElementById('roll-btn').disabled = true;
-
-            let counter = 0;
-            const interval = setInterval(() => {
-                const randTemp = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
-                document.getElementById('gacha-display').innerText = randTemp.name;
-                document.getElementById('gacha-display').style.color = randTemp.color;
-                counter++;
-                if (counter > 15) {
-                    clearInterval(interval);
-                    isRolling = false;
-                    document.getElementById('roll-btn').disabled = false;
-
-                    // Calculate outcome based on chances
-                    const rollVal = Math.random() * 100;
-                    let cumulative = 0;
-                    let selected = GACHA_POOL[0];
-                    for (let g of GACHA_POOL) {
-                        cumulative += g.chance;
-                        if (rollVal <= cumulative) { selected = g; break; }
-                    }
-
-                    activeEnchantment = selected;
-                    document.getElementById('gacha-display').innerText = selected.name;
-                    document.getElementById('gacha-display').style.color = selected.color;
-                    saveGame(); updateUI();
-                }
-            }, 80);
-        }
-
-        function openShop() {
-            const list = document.getElementById('shop-item-list');
-            list.innerHTML = '';
-            ITEMS_DATABASE.forEach(item => {
-                const isOwned = ownedItems.includes(item.id);
-                const card = document.createElement('div');
-                card.className = `card ${isOwned ? 'locked' : ''}`;
-                card.innerHTML = `
-                    <h4>${item.name}</h4>
-                    <p style="color: #f1c40f;">${item.rarity}</p>
-                    <p>${item.desc}</p>
-                    <button ${isOwned || coins < item.cost ? 'disabled' : ''} onclick="buyItem(${item.id})">
-                        ${isOwned ? 'Owned' : item.cost + ' Coins'}
-                    </button>
-                `;
-                list.appendChild(card);
-            });
-            openModal('shop-modal');
-        }
-
-        function buyItem(id) {
-            const item = ITEMS_DATABASE.find(i => i.id === id);
-            if (item && coins >= item.cost && !ownedItems.includes(id)) {
-                coins -= item.cost;
-                ownedItems.push(id);
-                if (item.type === 'special') equippedSpecialItem = item.name;
-                recalcStats();
-                saveGame();
-                openShop();
-                updateUI();
-            }
-        }
-
-        function toggleInventory() {
-            const modal = document.getElementById('inv-modal');
-            if (modal.style.display === 'flex') {
-                closeModal('inv-modal');
-            } else {
-                const grid = document.getElementById('item-grid');
-                grid.innerHTML = '';
-                ownedItems.forEach(id => {
-                    const item = ITEMS_DATABASE.find(i => i.id === id);
-                    if (item) {
-                        const card = document.createElement('div');
-                        card.className = 'card';
-                        card.innerHTML = `<h4>${item.name}</h4><p style="color:#f1c40f;">${item.rarity}</p><p>${item.desc}</p>`;
-                        grid.appendChild(card);
-                    }
-                });
-                openModal('inv-modal');
-            }
-        }
-
-        function openAchievementsBoard() {
-            const list = document.getElementById('achievements-list');
-            list.innerHTML = '';
-            ACHIEVEMENTS_DATABASE.forEach(ach => {
-                const card = document.createElement('div');
-                card.className = `card ${ach.unlocked ? '' : 'locked'}`;
-                card.innerHTML = `
-                    <h4>${ach.name}</h4>
-                    <p>${ach.desc}</p>
-                    <p style="color:#f1c40f; margin-top:4px;">${ach.unlocked ? 'Unlocked 🏆' : 'Locked'}</p>
-                `;
-                list.appendChild(card);
-            });
-            openModal('achievements-modal');
-        }
-
-        function openBoatHarbor() {
-            const list = document.getElementById('region-list');
-            list.innerHTML = '';
-            REGIONS.forEach((reg, idx) => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <h4 style="color:${reg.color};">${reg.name}</h4>
-                    <p>Travel to Sector</p>
-                    <button onclick="setRegion(${idx})">Set Sail</button>
-                `;
-                list.appendChild(card);
-            });
-            openModal('boat-modal');
-        }
-
-        function setRegion(rIdx) {
-            currentRegion = rIdx;
-            closeModal('boat-modal');
-            updateUI();
-        }
-
-        function openMissionBoard() {
-            const list = document.getElementById('mission-list');
-            list.innerHTML = '';
-            for (let m = 1; m <= 10; m++) {
-                const globalIdx = (currentRegion * 10) + m;
-                const config = MISSIONS[globalIdx];
-                const isUnlocked = globalIdx <= unlockedMission;
-                const card = document.createElement('div');
-                card.className = `card ${isUnlocked ? '' : 'locked'}`;
-                card.innerHTML = `
-                    <h4>Cave ${m}</h4>
-                    <p>Reward: ${config.reward} C</p>
-                    <button ${isUnlocked ? '' : 'disabled'} onclick="startMission(${globalIdx})">
-                        ${isUnlocked ? 'Enter' : 'Locked'}
-                    </button>
-                `;
-                list.appendChild(card);
-            }
-            openModal('mission-modal');
-        }
-
-        function upgradeArmor() {
-            const cost = 80 * armorLevel;
-            if (coins >= cost) {
-                coins -= cost;
-                armorLevel++;
-                recalcStats();
-                document.getElementById('armor-cost').innerText = 80 * armorLevel;
-                saveGame(); updateUI();
-            }
-        }
-
-        function buyPotion() {
-            if (coins >= 35) {
-                coins -= 35;
-                player.potions++;
-                saveGame(); updateUI();
-            }
-        }
-
-        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-        function returnToLobby() {
-            closeModal('victory-modal');
-            closeModal('game-over');
-            setupLobby();
-        }
-
-        function addFloatingText(x, y, text, color, size) {
-            floatingTexts.push({ x, y, text, color, size, lifetime: 0.8, alpha: 1.0 });
-        }
-
-        function updateUI() {
-            document.getElementById('coins').innerText = coins;
-            document.getElementById('level-num').innerText = player.level;
-            document.getElementById('hp-bar').style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
-            document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
-            document.getElementById('diff-ui').innerText = `MODE: ${selectedDifficulty.toUpperCase()}`;
-            document.getElementById('region-ui').innerText = `REGION: ${REGIONS[currentRegion].name.toUpperCase()}`;
-            document.getElementById('hud-weapon').innerText = WEAPONS[activeWeaponIdx].name;
-            document.getElementById('hud-special').innerText = equippedSpecialItem ?? (activeEnchantment ? activeEnchantment.name : 'None');
-            document.getElementById('hud-potion').innerText = `x${player.potions}`;
-        }
-
-        function update(dt) {
-            if (locationState === 'dungeon') runTime += dt;
-
-            // Handle player attack cd
-            if (player.attackTimer > 0) player.attackTimer -= dt;
-
-            // Player movement calculation (Keyboard or Touch Joystick)
-            let dx = 0, dy = 0;
-            if (keys['w'] || keys['arrowup']) dy -= 1;
-            if (keys['s'] || keys['arrowdown']) dy += 1;
-            if (keys['a'] || keys['arrowleft']) dx -= 1;
-            if (keys['d'] || keys['arrowright']) dx += 1;
-
-            if (joystickActive) {
-                dx = joystickVector.x;
-                dy = joystickVector.y;
-            }
-
-            if (dx !== 0 || dy !== 0) {
-                const len = Math.hypot(dx, dy);
-                const speedMod = (joystickActive ? len : 1) * player.speed;
-                player.x += (dx / (len || 1)) * speedMod * dt;
-                player.y += (dy / (len || 1)) * speedMod * dt;
-
-                // Player facing angle updates to move direction if moving via joystick or keys
-                if (joystickActive) {
-                    player.facingAngle = Math.atan2(dy, dx);
-                }
-            }
-
-            // Aim facing angle towards mouse cursor when moving/aiming on desktop
-            if (!joystickActive) {
-                const worldMx = mouse.x + camera.x;
-                const worldMy = mouse.y + camera.y;
-                player.facingAngle = Math.atan2(worldMy - player.y, worldMx - player.x);
-            }
-
-            // Keep inside bounds
-            player.x = Math.max(player.radius, Math.min(curMapSize.width - player.radius, player.x));
-            player.y = Math.max(player.radius, Math.min(curMapSize.height - player.radius, player.y));
-
-            // Camera target tracking
-            camera.x = Math.max(0, Math.min(curMapSize.width - canvas.width, player.x - canvas.width / 2));
-            camera.y = Math.max(0, Math.min(curMapSize.height - canvas.height, player.y - canvas.height / 2));
-
-            // Track room visits
-            rooms.forEach(rm => {
-                if (player.x >= rm.x && player.x <= rm.x + rm.w && player.y >= rm.y && player.y <= rm.y + rm.h) {
-                    rm.visited = true;
-                }
-            });
-
-            // Update Guide Hand motion
-            if (locationState === 'dungeon' && interactables.length > 0) {
-                const exitPortal = interactables.find(i => i.type === 'portal');
-                if (exitPortal) {
-                    const angleToExit = Math.atan2(exitPortal.y - player.y, exitPortal.x - player.x);
-                    guideHand.targetX = player.x + Math.cos(angleToExit) * 60;
-                    guideHand.targetY = player.y + Math.sin(angleToExit) * 60;
-                    guideHand.x += (guideHand.targetX - guideHand.x) * 0.1;
-                    guideHand.y += (guideHand.targetY - guideHand.y) * 0.1;
-                }
-            }
-
-            // Projectiles update
-            playerProjectiles.forEach((p, idx) => {
-                p.x += p.vx * dt; p.y += p.vy * dt;
-                p.lifetime -= dt;
-
-                // Hit checks
-                enemies.forEach(e => {
-                    if (Math.hypot(e.x - p.x, e.y - p.y) < e.radius + p.radius) {
-                        e.hp -= p.damage;
-                        addFloatingText(e.x, e.y - 10, `-${Math.round(p.damage)}`, '#f39c12', 14);
-                        p.lifetime = 0;
-                        if (e.hp <= 0) {
-                            enemiesKilledInRun++;
-                            coins += 15; gainXP(25);
-                        }
-                    }
-                });
-            });
-            playerProjectiles = playerProjectiles.filter(p => p.lifetime > 0);
-
-            // Enemy AI with FOV stealth angles
-            enemies.forEach(e => {
-                const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
-                const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-                let angleDiff = Math.abs(angleToPlayer - e.angle);
-                if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
-
-                // Aggro if within field of view OR inside close range
-                if (distToPlayer < e.aggroRange && (angleDiff < e.fovAngle || distToPlayer < 70)) {
-                    e.angle = angleToPlayer;
-                    e.x += Math.cos(e.angle) * e.speed * dt;
-                    e.y += Math.sin(e.angle) * e.speed * dt;
-
-                    // Melee attack player
-                    if (distToPlayer < e.radius + player.radius) {
-                        player.hp -= e.damage * dt * 5;
-                        addFloatingText(player.x, player.y - 10, '-HP', '#e74c3c', 10);
-                        if (player.hp <= 0) {
-                            locationState = 'game_over';
-                            document.getElementById('go-desc').innerText = `Defeated in ${MISSIONS[activeMission]?.name || 'Cave'}`;
-                            openModal('game-over');
-                        }
-                    }
-                }
-            });
-            enemies = enemies.filter(e => e.hp > 0);
-
-            // Floating text decay
-            floatingTexts.forEach(ft => {
-                ft.y -= 25 * dt;
-                ft.lifetime -= dt;
-                ft.alpha = Math.max(0, ft.lifetime / 0.8);
-            });
-            floatingTexts = floatingTexts.filter(ft => ft.lifetime > 0);
-
-            updateUI();
-        }
-
-        function render() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            ctx.translate(-camera.x, -camera.y);
-
-            // Draw Background Grid/Tiles
-            ctx.fillStyle = REGIONS[currentRegion].bgTile;
-            ctx.fillRect(0, 0, curMapSize.width, curMapSize.height);
-
-            // Draw Tunnels
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 40;
-            tunnels.forEach(tn => {
-                ctx.beginPath();
-                ctx.moveTo(tn.x1, tn.y1);
-                ctx.lineTo(tn.x2, tn.y2);
-                ctx.stroke();
-            });
-
-            // Draw Chambers/Rooms
-            rooms.forEach(rm => {
-                ctx.fillStyle = rm.isSecret ? '#1c102b' : '#121218';
-                ctx.strokeStyle = rm.isSecret ? '#8e44ad' : '#34495e';
-                ctx.lineWidth = 4;
-                ctx.fillRect(rm.x, rm.y, rm.w, rm.h);
-                ctx.strokeRect(rm.x, rm.y, rm.w, rm.h);
-            });
-
-            // Draw Interactables
-            interactables.forEach(obj => {
-                ctx.beginPath();
-                ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
-                ctx.fillStyle = obj.type === 'portal' ? '#9b59b6' : (obj.type === 'chest' ? '#f1c40f' : '#3498db');
-                ctx.fill();
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-
-                ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText(obj.label, obj.x, obj.y - obj.radius - 8);
-            });
-
-            // Draw Guide Hand (Glove-y)
-            if (locationState === 'dungeon') {
-                ctx.fillStyle = '#f1c40f';
-                ctx.beginPath();
-                ctx.arc(guideHand.x, guideHand.y, 12, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#000'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-                ctx.fillText('✋', guideHand.x, guideHand.y + 4);
-            }
-
-            // Draw Enemies with Stealth FOV cones
-            enemies.forEach(e => {
-                // FOV Vision Cone
-                ctx.fillStyle = 'rgba(231, 76, 60, 0.15)';
-                ctx.beginPath();
-                ctx.moveTo(e.x, e.y);
-                ctx.arc(e.x, e.y, e.aggroRange, e.angle - e.fovAngle, e.angle + e.fovAngle);
-                ctx.closePath();
-                ctx.fill();
-
-                // Enemy Body
-                ctx.fillStyle = e.color;
-                ctx.beginPath();
-                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Enemy HP Bar
-                ctx.fillStyle = 'rgba(0,0,0,0.6)';
-                ctx.fillRect(e.x - 15, e.y - e.radius - 8, 30, 4);
-                ctx.fillStyle = '#e74c3c';
-                ctx.fillRect(e.x - 15, e.y - e.radius - 8, (e.hp / e.maxHp) * 30, 4);
-            });
-
-            // Draw Player Projectiles
-            playerProjectiles.forEach(p => {
-                ctx.fillStyle = p.color;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Draw Player
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.facingAngle);
-
-            ctx.fillStyle = '#3498db';
-            ctx.beginPath();
-            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-
-            // Weapon Line
-            ctx.strokeStyle = WEAPONS[activeWeaponIdx].color;
-            ctx.lineWidth = 4;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(WEAPONS[activeWeaponIdx].range, 0);
-            ctx.stroke();
-
-            ctx.restore();
-
-            // Draw Floating Texts
-            floatingTexts.forEach(ft => {
-                ctx.save();
-                ctx.globalAlpha = ft.alpha;
-                ctx.fillStyle = ft.color;
-                ctx.font = `bold ${ft.size}px sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.fillText(ft.text, ft.x, ft.y);
-                ctx.restore();
-            });
-
-            ctx.restore();
-        }
-
-        function gameLoop(timestamp) {
-            if (!lastTime) lastTime = timestamp;
-            const dt = Math.min(0.1, (timestamp - lastTime) / 1000);
-            lastTime = timestamp;
-
-            update(dt);
-            render();
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Initialize Application
-        initMobileControls();
-        loadGame();
-        requestAnimationFrame(gameLoop);
-    </script>
 </body>
 </html>
