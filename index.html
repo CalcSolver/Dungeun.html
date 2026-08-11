@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Playful World Engine - Top Down</title>
+  <title>Playful Campaign World Engine</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body { background: #1a1a1a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
-    #gameContainer { position: relative; width: 800px; height: 600px; background: #2e7d32; border: 4px solid #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-    canvas { display: block; background: #2e7d32; }
+    #gameContainer { position: relative; width: 800px; height: 600px; background: #5c94fc; border: 4px solid #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    canvas { display: block; background: #87CEEB; }
     
     /* Inventory UI */
     #inventoryOverlay {
@@ -34,14 +34,22 @@
     /* Character Preview */
     #charCanvas { background: #1a1a24; border-radius: 8px; border: 2px solid #ffcc00; }
     
-    /* HUD */
-    #hud { position: absolute; top: 12px; left: 12px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.6); padding: 8px 14px; border-radius: 20px; pointer-events: none; z-index: 5; }
+    /* HUD & Mission Tracker */
+    #hud { position: absolute; top: 12px; left: 12px; font-size: 13px; background: rgba(0,0,0,0.6); padding: 10px 16px; border-radius: 10px; pointer-events: none; z-index: 5; }
+    .hud-title { font-weight: bold; color: #ffcc00; margin-bottom: 4px; font-size: 14px; }
+    .mission-step { margin-top: 4px; color: #ddd; }
+    .mission-step.done { color: #55ff55; text-decoration: line-through; }
   </style>
 </head>
 <body>
 
 <div id="gameContainer">
-  <div id="hud">WASD: Move | E: Inventory | Click/Space: Shoot | Walk to Water for Side-View Boat</div>
+  <div id="hud">
+    <div class="hud-title" id="campaignTitle">Campaign: Mission 1</div>
+    <div id="missionText">Equip Bow in Inventory ('E') & Shoot 3 Targets</div>
+    <div class="mission-step" id="controlsHint">Controls: A/D (Move) | W (Jump) | E (Inv) | Space/Click (Shoot)</div>
+  </div>
+  
   <canvas id="gameCanvas" width="800" height="600"></canvas>
   
   <!-- Inventory Overlay -->
@@ -66,36 +74,39 @@ const charCtx = charCanvas.getContext('2d');
 
 let keys = {};
 let invOpen = false;
+
+// Campaign & Mission Progression
+let currentMission = 1;
+let targetsHitCount = 0;
 let secretUnlocked = false;
 
 // Game State
 const player = {
-  x: 150, y: 300,
-  speed: 3.5,
-  radius: 18,
-  angle: 0, // In radians for 360 rotation aim
-  inWater: false,
+  x: 80, y: 450, vx: 0, vy: 0,
+  width: 30, height: 50,
+  inBoat: false,
   equippedArmour: false,
-  equippedBow: false
+  equippedBow: false,
+  facing: 1
 };
 
 const items = [
   { id: 'armour', icon: '🛡️', count: 1 },
   { id: 'bow', icon: '🏹', count: 1 },
-  { id: 'arrow', icon: '🎯', count: 30 },
+  { id: 'arrow', icon: '🎯', count: 35 },
   { id: 'boat', icon: '⛵', count: 1 },
   { id: 'key', icon: '🔑', count: 1 }
 ];
 
-// Target Dummies in the top-down world
+// Side-View Mission Targets
 const targets = [
-  { x: 300, y: 120, hit: false },
-  { x: 300, y: 480, hit: false }
+  { x: 300, y: 380, hit: false },
+  { x: 420, y: 320, hit: false },
+  { x: 470, y: 410, hit: false }
 ];
 
 const arrows = [];
 let boatBob = 0;
-let mouseX = 0, mouseY = 0;
 
 // Input Handling
 window.addEventListener('keydown', e => {
@@ -113,28 +124,21 @@ window.addEventListener('keydown', e => {
 
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  mouseX = e.clientX - rect.left;
-  mouseY = e.clientY - rect.top;
-});
-
 canvas.addEventListener('mousedown', e => {
   if (e.button === 0 && !invOpen) shootArrow();
 });
 
 function shootArrow() {
   const arrowItem = items.find(i => i.id === 'arrow');
-  if (player.equippedBow && arrowItem && arrowItem.count > 0 && !player.inWater) {
+  if (player.equippedBow && arrowItem && arrowItem.count > 0) {
     arrowItem.count--;
     renderInventoryUI();
     
     arrows.push({
-      x: player.x,
-      y: player.y,
-      vx: Math.cos(player.angle) * 9,
-      vy: Math.sin(player.angle) * 9,
-      life: 100
+      x: player.x + (player.facing > 0 ? player.width + 5 : -5),
+      y: (player.inBoat ? player.y - 10 + Math.sin(boatBob) * 4 : player.y) + 20,
+      vx: player.facing * 11,
+      vy: -1.5
     });
   }
 }
@@ -189,133 +193,125 @@ function drawCharacterPreview() {
   }
 }
 
-// Game Updates
+// Campaign Mission Text Updates
+function updateCampaignHUD() {
+  const title = document.getElementById('campaignTitle');
+  const text = document.getElementById('missionText');
+
+  if (currentMission === 1) {
+    title.innerText = "Mission 1: Target Practice";
+    text.innerText = `Equip your Bow ('E') and destroy all targets (${targetsHitCount}/3)`;
+  } else if (currentMission === 2) {
+    title.innerText = "Mission 2: Secret Discovery";
+    text.innerText = "Walk over to the Secret Portal frame to unlock the hidden world!";
+  } else if (currentMission === 3) {
+    title.innerText = "Mission 3: Voyage";
+    text.innerText = "Walk right into the water to set sail on your boat!";
+  }
+}
+
+// Game Logic Updates
 function update() {
   if (invOpen) return;
 
-  // Water trigger region (Right side of screen)
-  player.inWater = player.x > 580;
+  // Horizontal Movement
+  if (keys['a'] || keys['arrowleft']) { player.vx = -4; player.facing = -1; }
+  else if (keys['d'] || keys['arrowright']) { player.vx = 4; player.facing = 1; }
+  else player.vx = 0;
 
-  if (player.inWater) {
-    // Side-View Boat Mode Controls
-    if (keys['a'] || keys['arrowleft']) player.x -= 3;
-    if (keys['d'] || keys['arrowright']) player.x += 3;
-    if (keys['w'] || keys['arrowup']) player.y -= 3;
-    if (keys['s'] || keys['arrowdown']) player.y += 3;
-    boatBob += 0.08;
+  // Jump
+  if ((keys['w'] || keys['arrowup']) && player.y >= 450 && !player.inBoat) {
+    player.vy = -10;
+  }
+
+  // Physics
+  player.vy += 0.5;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Ground collision
+  if (player.y > 450) { player.y = 450; player.vy = 0; }
+
+  // Water boundary & Boat ride
+  const waterStart = 520;
+  if (player.x > waterStart) {
+    player.inBoat = true;
+    player.y = 460;
+    if (currentMission === 3) {
+      document.getElementById('campaignTitle').innerText = "Campaign Complete!";
+      document.getElementById('missionText').innerText = "You mastered archery, secrets, and sailing!";
+    }
   } else {
-    // Top-Down Walking Controls
-    let dx = 0, dy = 0;
-    if (keys['a'] || keys['arrowleft']) dx -= 1;
-    if (keys['d'] || keys['arrowright']) dx += 1;
-    if (keys['w'] || keys['arrowup']) dy -= 1;
-    if (keys['s'] || keys['arrowdown']) dy += 1;
+    player.inBoat = false;
+  }
 
-    if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+  boatBob += 0.08;
 
-    player.x += dx * player.speed;
-    player.y += dy * player.speed;
-
-    // Boundaries
-    player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
-    player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
-
-    // Calculate mouse angle for aiming
-    player.angle = Math.atan2(mouseY - player.y, mouseX - player.x);
-
-    // Secret Portal Unlock trigger
-    if (Math.hypot(player.x - 400, player.y - 80) < 30) {
+  // Secret Portal Collision
+  if (player.x > 220 && player.x < 280 && player.y >= 440) {
+    if (!secretUnlocked) {
       secretUnlocked = true;
+      if (currentMission === 2) {
+        currentMission = 3;
+      }
     }
   }
 
-  // Update Arrows
+  // Arrows Collision with Targets
   for (let i = arrows.length - 1; i >= 0; i--) {
     let a = arrows[i];
     a.x += a.vx;
     a.y += a.vy;
-    a.life--;
+    a.vy += 0.06;
 
-    // Target Collisions
     targets.forEach(t => {
-      if (!t.hit && Math.hypot(a.x - t.x, a.y - t.y) < 20) {
+      if (!t.hit && Math.hypot(a.x - t.x, a.y - t.y) < 22) {
         t.hit = true;
+        targetsHitCount++;
         arrows.splice(i, 1);
+        if (targetsHitCount >= 3 && currentMission === 1) {
+          currentMission = 2;
+        }
       }
     });
 
-    if (a.life <= 0 || a.x < 0 || a.x > canvas.width || a.y < 0 || a.y > canvas.height) {
+    if (a.x < 0 || a.x > canvas.width || a.y > 500) {
       arrows.splice(i, 1);
     }
   }
+
+  updateCampaignHUD();
 }
 
 // Rendering
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (player.inWater) {
-    // --- SIDE-VIEW BOAT MODE ---
-    ctx.fillStyle = '#5c94fc';
-    ctx.fillRect(0, 0, canvas.width, 400); // Sky
-    ctx.fillStyle = '#2b65ec';
-    ctx.fillRect(0, 400, canvas.width, 200); // Water
+  // Background Environment
+  ctx.fillStyle = '#5c94fc';
+  ctx.fillRect(0, 0, canvas.width, 500); // Sky
+  ctx.fillStyle = '#7ec850';
+  ctx.fillRect(0, 500, 520, 100); // Grass
+  ctx.fillStyle = '#2b65ec';
+  ctx.fillRect(520, 500, 280, 100); // Water
 
-    const floatOffset = Math.sin(boatBob) * 5;
-    const bx = player.x;
-    const by = 430 + floatOffset;
-
-    // Boat Hull
-    ctx.fillStyle = '#8b4513';
-    ctx.beginPath();
-    ctx.moveTo(bx - 40, by);
-    ctx.lineTo(bx + 50, by);
-    ctx.lineTo(bx + 35, by + 30);
-    ctx.lineTo(bx - 25, by + 30);
-    ctx.closePath();
-    ctx.fill();
-
-    // Player in Boat (Side View)
-    ctx.fillStyle = player.equippedArmour ? '#c0c0c0' : '#ff7b7b';
-    ctx.fillRect(bx - 5, by - 35, 20, 35);
-    ctx.fillStyle = '#ffdbac';
-    ctx.fillRect(bx - 2, by - 50, 14, 15);
-
-    // Water Ripples
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(bx + 5, by + 30, 30, 0, Math.PI);
-    ctx.stroke();
-
+  // Secret Portal
+  ctx.fillStyle = secretUnlocked ? '#9b59b6' : '#2c3e50';
+  ctx.fillRect(230, 410, 40, 90);
+  if (secretUnlocked) {
+    ctx.fillStyle = '#f1c40f';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('PORTAL OPEN!', 210, 400);
   } else {
-    // --- BIRD'S-EYE VIEW MODE ---
-    
-    // Grass Field
-    ctx.fillStyle = '#419834';
-    ctx.fillRect(0, 0, 580, canvas.height);
-
-    // Water Zone on Right
-    ctx.fillStyle = '#2b65ec';
-    ctx.fillRect(580, 0, 220, canvas.height);
-
-    // Secret Portal (Top-Down)
-    ctx.fillStyle = secretUnlocked ? '#9b59b6' : '#2c3e50';
-    ctx.beginPath();
-    ctx.arc(400, 80, 25, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = secretUnlocked ? '#f1c40f' : '#7f8c8d';
-    ctx.lineWidth = 4;
-    ctx.stroke();
-
     ctx.fillStyle = '#fff';
     ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(secretUnlocked ? 'PORTAL OPEN!' : 'Secret Portal', 400, 45);
+    ctx.fillText('Secret Portal', 215, 400);
+  }
 
-    // Targets (Top-Down)
-    targets.forEach(t => {
-      ctx.fillStyle = t.hit ? '#7f8c8d' : '#e74c3c';
+  // Mission Targets
+  targets.forEach(t => {
+    if (!t.hit) {
+      ctx.fillStyle = '#e74c3c';
       ctx.beginPath();
       ctx.arc(t.x, t.y, 16, 0, Math.PI * 2);
       ctx.fill();
@@ -323,48 +319,62 @@ function draw() {
       ctx.beginPath();
       ctx.arc(t.x, t.y, 8, 0, Math.PI * 2);
       ctx.fill();
-    });
-
-    // Arrows
-    ctx.fillStyle = '#1a1a1a';
-    arrows.forEach(a => {
-      ctx.beginPath();
-      ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    // Top-Down Player Character
-    ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.rotate(player.angle);
-
-    // Body
-    ctx.fillStyle = player.equippedArmour ? '#a0a0a0' : '#ff7b7b';
-    ctx.beginPath();
-    ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Shoulders / Hands
-    ctx.fillStyle = '#ffdbac';
-    ctx.beginPath();
-    ctx.arc(12, -10, 5, 0, Math.PI * 2);
-    ctx.arc(12, 10, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Bow (Top-Down view held forward)
-    if (player.equippedBow) {
-      ctx.strokeStyle = '#8b4513';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(15, 0, 14, -Math.PI / 3, Math.PI / 3);
-      ctx.stroke();
+      ctx.fillStyle = '#8b4513';
+      ctx.fillRect(t.x - 3, t.y + 16, 6, 20);
     }
+  });
 
-    ctx.restore();
+  // Boat Riding & Character Rendering
+  const floatOffset = Math.sin(boatBob) * 4;
+
+  if (player.inBoat) {
+    // Boat Hull
+    ctx.fillStyle = '#8b4513';
+    ctx.beginPath();
+    ctx.moveTo(player.x - 20, 510 + floatOffset);
+    ctx.lineTo(player.x + 50, 510 + floatOffset);
+    ctx.lineTo(player.x + 40, 530 + floatOffset);
+    ctx.lineTo(player.x - 10, 530 + floatOffset);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ripples
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(player.x + 15, 532 + floatOffset, 25, 0, Math.PI);
+    ctx.stroke();
   }
+
+  // Character
+  const renderY = player.inBoat ? player.y - 10 + floatOffset : player.y;
+  
+  ctx.fillStyle = player.equippedArmour ? '#c0c0c0' : '#ff7b7b';
+  ctx.fillRect(player.x, renderY, player.width, player.height);
+
+  ctx.fillStyle = '#ffdbac';
+  ctx.fillRect(player.x + 5, renderY - 15, 20, 15);
+
+  if (player.equippedBow) {
+    ctx.strokeStyle = '#8b4513';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(player.x + (player.facing > 0 ? 30 : 0), renderY + 20, 15, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+  }
+
+  // Flying Arrows
+  ctx.fillStyle = '#5c3a21';
+  ctx.strokeStyle = '#fff';
+  arrows.forEach(a => {
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x - (a.vx * 1.5), a.y);
+    ctx.stroke();
+  });
 
   requestAnimationFrame(() => {
     update();
