@@ -28,19 +28,20 @@
       font-size: 24px; cursor: pointer; position: relative; transition: all 0.2s;
     }
     .item-slot:hover { border-color: #ffcc00; background: #282838; }
+    .item-slot.active { border: 2px solid #00ffcc; background: #224444; }
     .item-count { position: absolute; bottom: 2px; right: 6px; font-size: 11px; font-weight: bold; color: #fff; }
     
     /* Character Preview */
     #charCanvas { background: #1a1a24; border-radius: 8px; border: 2px solid #ffcc00; }
     
-    /* Notification */
+    /* HUD */
     #hud { position: absolute; top: 12px; left: 12px; font-weight: bold; font-size: 14px; background: rgba(0,0,0,0.5); padding: 8px 14px; border-radius: 20px; }
   </style>
 </head>
 <body>
 
 <div id="gameContainer">
-  <div id="hud">Press 'E' for Inventory | Walk to Water for Boat | Find Secret Portal</div>
+  <div id="hud">E: Inventory | Click/Space: Shoot Bow | Walk Right: Boat Ride</div>
   <canvas id="gameCanvas" width="800" height="600"></canvas>
   
   <!-- Inventory Overlay -->
@@ -82,23 +83,55 @@ const player = {
 const items = [
   { id: 'armour', icon: '🛡️', count: 1, name: 'Armor' },
   { id: 'bow', icon: '🏹', count: 1, name: 'Bow' },
-  { id: 'arrow', icon: '🏹', count: 24, name: 'Arrows' },
+  { id: 'arrow', icon: '🎯', count: 24, name: 'Arrows' },
   { id: 'boat', icon: '⛵', count: 1, name: 'Boat' },
   { id: 'key', icon: '🔑', count: 1, name: 'Secret Key' }
 ];
 
-// Boat Animation state
+// Flying Arrows array
+const arrows = [];
 let boatBob = 0;
 
+// Input Handling
 window.addEventListener('keydown', e => {
-  keys[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase() === 'e') {
+  const key = e.key.toLowerCase();
+  keys[key] = true;
+  
+  if (key === 'e') {
     invOpen = !invOpen;
     document.getElementById('inventoryOverlay').style.display = invOpen ? 'flex' : 'none';
     if (invOpen) drawCharacterPreview();
   }
+
+  // Shoot Arrow on Spacebar
+  if (key === ' ' && !invOpen) {
+    shootArrow();
+  }
 });
+
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// Shoot Arrow on Left Click
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 0 && !invOpen) {
+    shootArrow();
+  }
+});
+
+function shootArrow() {
+  const arrowItem = items.find(i => i.id === 'arrow');
+  if (player.equippedBow && arrowItem && arrowItem.count > 0) {
+    arrowItem.count--;
+    renderInventoryUI();
+    
+    arrows.push({
+      x: player.x + (player.facing > 0 ? player.width + 5 : -5),
+      y: (player.inBoat ? player.y - 10 + Math.sin(boatBob) * 4 : player.y) + 20,
+      vx: player.facing * 10,
+      vy: -1
+    });
+  }
+}
 
 // Render minimal inventory grid
 function renderInventoryUI() {
@@ -106,7 +139,11 @@ function renderInventoryUI() {
   grid.innerHTML = '';
   items.forEach(item => {
     const slot = document.createElement('div');
-    slot.className = 'item-slot';
+    let isActive = false;
+    if (item.id === 'armour' && player.equippedArmour) isActive = true;
+    if (item.id === 'bow' && player.equippedBow) isActive = true;
+
+    slot.className = `item-slot ${isActive ? 'active' : ''}`;
     slot.innerHTML = `<span>${item.icon}</span><span class="item-count">${item.count}</span>`;
     slot.onclick = () => toggleEquip(item.id);
     grid.appendChild(slot);
@@ -117,6 +154,7 @@ renderInventoryUI();
 function toggleEquip(id) {
   if (id === 'armour') player.equippedArmour = !player.equippedArmour;
   if (id === 'bow') player.equippedBow = !player.equippedBow;
+  renderInventoryUI();
   drawCharacterPreview();
 }
 
@@ -138,7 +176,7 @@ function drawCharacterPreview() {
   charCtx.arc(90, 90, 20, 0, Math.PI * 2);
   charCtx.fill();
 
-  // Helmet / Hat
+  // Helmet
   if (player.equippedArmour) {
     charCtx.fillStyle = '#a0a0a0';
     charCtx.fillRect(68, 68, 44, 12);
@@ -162,7 +200,7 @@ function update() {
     else if (keys['d'] || keys['arrowright']) { player.vx = 4; player.facing = 1; }
     else player.vx = 0;
 
-    if ((keys['w'] || keys[' ']) && player.y >= 450) player.vy = -10;
+    if (keys['w'] && player.y >= 450) player.vy = -10;
   }
 
   // Gravity
@@ -177,7 +215,7 @@ function update() {
   const waterStart = 500;
   if (player.x > waterStart) {
     player.inBoat = true;
-    player.y = 460; // Float level
+    player.y = 460;
   } else {
     player.inBoat = false;
   }
@@ -188,6 +226,19 @@ function update() {
   // Secret Portal Collision
   if (player.x > 350 && player.x < 410 && player.y >= 440) {
     secretUnlocked = true;
+  }
+
+  // Update flying arrows
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    let a = arrows[i];
+    a.x += a.vx;
+    a.y += a.vy;
+    a.vy += 0.05; // Light arrow gravity
+
+    // Remove arrows if off screen or hitting water/ground
+    if (a.x < 0 || a.x > canvas.width || a.y > 500) {
+      arrows.splice(i, 1);
+    }
   }
 }
 
@@ -210,7 +261,7 @@ function draw() {
   if (secretUnlocked) {
     ctx.fillStyle = '#f1c40f';
     ctx.font = '12px sans-serif';
-    ctx.fillText('UNLOCKED!', 345, 400);
+    ctx.fillText('SECRET WORLD!', 335, 400);
   } else {
     ctx.fillStyle = '#fff';
     ctx.font = '12px sans-serif';
@@ -258,6 +309,19 @@ function draw() {
     ctx.arc(player.x + (player.facing > 0 ? 30 : 0), renderY + 20, 15, -Math.PI / 2, Math.PI / 2);
     ctx.stroke();
   }
+
+  // Render Flying Arrows
+  ctx.fillStyle = '#5c3a21';
+  ctx.strokeStyle = '#fff';
+  arrows.forEach(a => {
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x - (a.vx * 1.5), a.y);
+    ctx.stroke();
+  });
 
   requestAnimationFrame(() => {
     update();
