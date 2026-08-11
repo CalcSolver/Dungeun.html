@@ -3,14 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dungeon Crawler</title>
+    <title>Dungeon Crawler - Extended</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body {
             background-color: #111116;
             color: #fff;
@@ -29,181 +24,197 @@
             overflow: hidden;
             border: 3px solid #3a3a4c;
         }
-        canvas {
-            display: block;
-            background-color: #1d1d26;
-            cursor: crosshair;
-        }
+        canvas { display: block; background-color: #1d1d26; cursor: crosshair; }
         #ui {
             position: absolute;
-            top: 15px;
-            left: 15px;
-            right: 15px;
-            display: flex;
-            justify-content: space-between;
-            pointer-events: none;
-            font-size: 18px;
-            font-weight: bold;
+            top: 15px; left: 15px; right: 15px;
+            display: flex; justify-content: space-between;
+            pointer-events: none; font-size: 16px; font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 5;
         }
         .bar-container {
-            width: 200px;
-            height: 22px;
-            background: rgba(0,0,0,0.6);
-            border: 2px solid #555;
-            border-radius: 11px;
-            overflow: hidden;
-            position: relative;
+            width: 180px; height: 18px; background: rgba(0,0,0,0.6);
+            border: 2px solid #555; border-radius: 9px; overflow: hidden;
         }
-        .hp-bar {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, #e74c3c, #c0392b);
-            transition: width 0.1s ease;
+        .hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .xp-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        
+        .modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 15, 0.9);
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 20; padding: 20px;
         }
-        .xp-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, #2ecc71, #27ae60);
-            transition: width 0.1s ease;
+        .modal h2 { color: #f1c40f; margin-bottom: 15px; text-transform: uppercase; }
+        .shop-grid, .inv-grid { display: flex; gap: 15px; margin-bottom: 20px; }
+        .card {
+            background: #2a2a38; border: 2px solid #444; border-radius: 8px;
+            padding: 15px; width: 160px; text-align: center; display: flex;
+            flex-direction: column; justify-content: space-between; align-items: center;
         }
-        #game-over {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(10, 10, 15, 0.85);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 10;
-        }
-        #game-over h1 {
-            font-size: 48px;
-            color: #e74c3c;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        #game-over p {
-            font-size: 20px;
-            margin-bottom: 25px;
-            color: #aaa;
-        }
+        .card h4 { color: #3498db; margin-bottom: 5px; }
+        .card p { font-size: 12px; color: #aaa; margin-bottom: 10px; }
+        
         button {
-            padding: 12px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
-            pointer-events: auto;
+            padding: 8px 18px; font-size: 14px; font-weight: bold;
+            background: #3498db; color: white; border: none; border-radius: 4px;
+            cursor: pointer; transition: background 0.2s; pointer-events: auto;
         }
-        button:hover {
-            background: #2980b9;
-            transform: scale(1.05);
-        }
-        .controls-hint {
-            margin-top: 15px;
-            color: #888;
-            font-size: 14px;
-            text-align: center;
-        }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        
+        .controls-hint { margin-top: 10px; color: #888; font-size: 13px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div id="game-container">
         <canvas id="canvas" width="800" height="600"></canvas>
+
         <div id="ui">
             <div>
-                <div style="font-size: 12px; margin-bottom: 2px;">HEALTH</div>
+                <div style="font-size: 10px;">HEALTH</div>
                 <div class="bar-container"><div id="hp-bar" class="hp-bar"></div></div>
-                <div style="font-size: 12px; margin-top: 6px; margin-bottom: 2px;">LEVEL <span id="level-num">1</span></div>
-                <div class="bar-container" style="height: 10px;"><div id="xp-bar" class="xp-bar"></div></div>
+                <div style="font-size: 10px; margin-top: 4px;">LEVEL <span id="level-num">1</span></div>
+                <div class="bar-container" style="height: 8px;"><div id="xp-bar" class="xp-bar"></div></div>
             </div>
             <div style="text-align: right;">
-                <div>KILLS: <span id="score" style="color: #f1c40f;">0</span></div>
-                <div style="font-size: 14px; color: #aaa; margin-top: 5px;">WAVE <span id="wave">1</span></div>
+                <div>COINS: <span id="coins" style="color: #f1c40f;">0</span></div>
+                <div id="mission-ui" style="font-size: 12px; color: #aaa; margin-top: 4px;">LOCATION: LOBBY</div>
+                <div id="ability-ui" style="font-size: 12px; color: #e74c3c; margin-top: 4px;">ABILITY: NONE (R)</div>
             </div>
         </div>
-        
-        <div id="game-over">
-            <h1 id="go-title">DUNGEON CRAWLER</h1>
-            <p id="go-desc">Defeat enemies and survive!</p>
-            <button id="start-btn" onclick="startGame()">PLAY GAME</button>
+
+        <!-- Inventory Modal -->
+        <div id="inv-modal" class="modal">
+            <h2>Inventory & Stats</h2>
+            <div class="inv-grid">
+                <div class="card">
+                    <h4>Sword</h4>
+                    <p id="inv-dmg">Damage: 35</p>
+                </div>
+                <div class="card">
+                    <h4>Abilities</h4>
+                    <p id="inv-ability">None Equipped</p>
+                </div>
+                <div class="card">
+                    <h4>Potions</h4>
+                    <p id="inv-potions">Health Potions: 0</p>
+                    <button onclick="usePotion()">Use Potion</button>
+                </div>
+            </div>
+            <button onclick="toggleInventory()">Close (E)</button>
+        </div>
+
+        <!-- Merchant Shop Modal -->
+        <div id="shop-modal" class="modal">
+            <h2>Merchant Shop</h2>
+            <div class="shop-grid">
+                <div class="card">
+                    <h4>Health Potion</h4>
+                    <p>Restores 50 HP</p>
+                    <button onclick="buyItem('potion', 20)">Buy (20 Coins)</button>
+                </div>
+                <div class="card">
+                    <h4>Sharp Blade</h4>
+                    <p>+15 Attack Damage</p>
+                    <button id="buy-dmg-btn" onclick="buyItem('damage', 50)">Buy (50 Coins)</button>
+                </div>
+                <div class="card">
+                    <h4>Dash Skill</h4>
+                    <p>Unlock Dash (Press R)</p>
+                    <button id="buy-dash-btn" onclick="buyItem('dash', 100)">Buy (100 Coins)</button>
+                </div>
+            </div>
+            <button onclick="closeMerchant()">Exit Shop</button>
+        </div>
+
+        <!-- Mission Board Modal -->
+        <div id="mission-modal" class="modal">
+            <h2>Select Mission</h2>
+            <p style="margin-bottom: 15px; color: #aaa;">Clear dungeons to earn bonus mission coins!</p>
+            <div class="shop-grid">
+                <div class="card">
+                    <h4>Level 1: Ruins</h4>
+                    <p>Defeat enemies & solve the puzzle.</p>
+                    <p style="color: #f1c40f; margin-top: 5px;">Reward: 100 Coins</p>
+                    <button onclick="startMission(1)">Launch</button>
+                </div>
+                <div class="card">
+                    <h4>Level 2: Deep Caves</h4>
+                    <p>Harder enemies & bigger rewards.</p>
+                    <p style="color: #f1c40f; margin-top: 5px;">Reward: 250 Coins</p>
+                    <button onclick="startMission(2)">Launch</button>
+                </div>
+            </div>
+            <button onclick="closeMissions()">Cancel</button>
+        </div>
+
+        <!-- Map Viewer Modal -->
+        <div id="map-modal" class="modal">
+            <h2>Dungeon Map</h2>
+            <p style="margin-bottom: 15px; color: #aaa;">Explore chests (Gold) and puzzle altars (Blue).</p>
+            <button onclick="toggleMap()">Close Map</button>
+        </div>
+
+        <!-- Game Over / Mission Complete -->
+        <div id="game-over" class="modal">
+            <h2 id="go-title">MISSION COMPLETE</h2>
+            <p id="go-desc" style="margin-bottom: 20px; color: #aaa;"></p>
+            <button onclick="returnToLobby()">Return to Lobby</button>
         </div>
     </div>
 
     <div class="controls-hint">
-        <strong>Controls:</strong> WASD / Arrows = Move | Left Click / Space = Attack | Aim with Mouse
+        <strong>Controls:</strong> WASD / Arrows = Move | Left Click / Space = Attack | E = Inventory | R = Ability | F = Interact
     </div>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
 
-        // State
-        let gameState = 'menu'; // 'menu', 'playing', 'gameover'
+        // Game State
+        let locationState = 'lobby'; // 'lobby', 'dungeon'
         let keys = {};
         let mouse = { x: 400, y: 300 };
         let lastTime = 0;
-        let score = 0;
-        let wave = 1;
-        let enemiesToSpawn = 5;
+        let coins = 50;
+        let activeMission = 0;
 
-        // Player setup
+        // Player Stats
         const player = {
-            x: 400,
-            y: 300,
-            radius: 16,
-            speed: 200,
-            maxHp: 100,
-            hp: 100,
-            level: 1,
-            xp: 0,
-            xpToNext: 100,
-            attackRadius: 55,
-            attackAngle: Math.PI / 2.2,
-            attackCooldown: 0.35,
-            attackTimer: 0,
-            isAttacking: false,
-            swingProgress: 0,
+            x: 400, y: 300, radius: 16, speed: 200,
+            maxHp: 100, hp: 100, level: 1, xp: 0, xpToNext: 100,
+            damage: 35, attackRadius: 55, attackAngle: Math.PI / 2.2,
+            attackCooldown: 0.35, attackTimer: 0, isAttacking: false, swingProgress: 0,
             facingAngle: 0,
-            damage: 35
+            // Inventory & Abilities
+            potions: 0,
+            hasDash: false,
+            dashCooldown: 3,
+            dashTimer: 0
         };
 
-        // Entities
+        // Entities & Map Objects
         let enemies = [];
         let particles = [];
         let floatingTexts = [];
-        let healthPacks = [];
+        let interactables = []; // Merchant, Mission Board, Chests, Puzzles
+        let coinsList = [];
 
-        // Camera / Map Setup
-        const mapSize = { width: 1600, height: 1200 };
+        const mapSize = { width: 1200, height: 900 };
         const camera = { x: 0, y: 0 };
 
-        // Grid map decoration (blocky aesthetic)
-        const gridTiles = [];
-        const tileSize = 80;
-        for (let x = 0; x < mapSize.width; x += tileSize) {
-            for (let y = 0; y < mapSize.height; y += tileSize) {
-                const shade = Math.floor(Math.random() * 15);
-                gridTiles.push({
-                    x, y,
-                    color: `rgb(${30 + shade}, ${30 + shade}, ${40 + shade})`,
-                    detail: Math.random() > 0.8
-                });
-            }
-        }
+        // Key Listeners
+        window.addEventListener('keydown', e => {
+            const k = e.key.toLowerCase();
+            keys[k] = true;
 
-        // Input Handlers
-        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+            if (k === 'e') toggleInventory();
+            if (k === 'f') interactWithNearby();
+            if (k === 'r') useAbility();
+        });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         canvas.addEventListener('mousemove', e => {
             const rect = canvas.getBoundingClientRect();
@@ -214,403 +225,274 @@
             if (e.button === 0) performAttack();
         });
 
+        // Initialize Lobby
+        function setupLobby() {
+            locationState = 'lobby';
+            player.x = 600; player.y = 450;
+            enemies = []; interactables = []; coinsList = [];
+            document.getElementById('mission-ui').innerText = "LOCATION: LOBBY";
+
+            // Add Lobby NPCs/Stations
+            interactables.push({ x: 400, y: 300, radius: 25, type: 'merchant', label: 'Merchant (F)' });
+            interactables.push({ x: 800, y: 300, radius: 25, type: 'mission_board', label: 'Missions (F)' });
+        }
+
+        function startMission(missionNum) {
+            activeMission = missionNum;
+            locationState = 'dungeon';
+            closeMissions();
+            document.getElementById('mission-ui').innerText = `MISSION ${missionNum}`;
+
+            player.x = 100; player.y = 100;
+            enemies = []; interactables = []; coinsList = [];
+
+            // Add Chests & Puzzles
+            interactables.push({ x: 900, y: 200, radius: 20, type: 'chest', opened: false, label: 'Chest (F)' });
+            interactables.push({ x: 600, y: 700, radius: 25, type: 'puzzle', solved: false, label: 'Puzzle Altar (F)' });
+
+            // Spawn Initial Enemies
+            const count = missionNum * 6;
+            for (let i = 0; i < count; i++) spawnEnemy();
+        }
+
+        function interactWithNearby() {
+            interactables.forEach(obj => {
+                const dist = Math.hypot(player.x - obj.x, player.y - obj.y);
+                if (dist < player.radius + obj.radius + 20) {
+                    if (obj.type === 'merchant') openMerchant();
+                    if (obj.type === 'mission_board') openMissions();
+                    if (obj.type === 'chest' && !obj.opened) {
+                        obj.opened = true;
+                        const drop = 50 * activeMission;
+                        coins += drop;
+                        addFloatingText(obj.x, obj.y - 20, `+${drop} Coins!`, '#f1c40f', 20);
+                        updateUI();
+                    }
+                    if (obj.type === 'puzzle' && !obj.solved) {
+                        obj.solved = true;
+                        addFloatingText(obj.x, obj.y - 20, 'Puzzle Solved! +100 XP', '#2ecc71', 20);
+                        gainXP(100);
+                    }
+                }
+            });
+        }
+
+        function useAbility() {
+            if (!player.hasDash || player.dashTimer > 0) return;
+            player.dashTimer = player.dashCooldown;
+            player.x += Math.cos(player.facingAngle) * 120;
+            player.y += Math.sin(player.facingAngle) * 120;
+            createParticles(player.x, player.y, '#3498db', 12);
+        }
+
         function performAttack() {
-            if (gameState !== 'playing' || player.attackTimer > 0) return;
+            if (player.attackTimer > 0) return;
             player.isAttacking = true;
             player.attackTimer = player.attackCooldown;
-            player.swingProgress = 0;
 
-            // Check hit on enemies
             enemies.forEach(e => {
                 const dx = e.x - player.x;
                 const dy = e.y - player.y;
-                const dist = Math.hypot(dx, dy);
-
-                if (dist <= player.attackRadius + e.radius) {
-                    const angleToEnemy = Math.atan2(dy, dx);
-                    let angleDiff = angleToEnemy - player.facingAngle;
-
-                    // Normalize angle
-                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-
-                    if (Math.abs(angleDiff) <= player.attackAngle / 2 + 0.3) {
-                        // Knockback & Damage
-                        const kbStrength = 180;
-                        e.vx += Math.cos(angleToEnemy) * kbStrength;
-                        e.vy += Math.sin(angleToEnemy) * kbStrength;
-                        
-                        const isCrit = Math.random() < 0.2;
-                        const dmg = isCrit ? Math.round(player.damage * 1.5) : player.damage;
-                        e.hp -= dmg;
-
-                        addFloatingText(e.x, e.y - 15, dmg.toString(), isCrit ? '#f1c40f' : '#fff', isCrit ? 22 : 16);
-                        createParticles(e.x, e.y, e.color, 6);
-
-                        if (e.hp <= 0) {
-                            killEnemy(e);
-                        }
-                    }
+                if (Math.hypot(dx, dy) <= player.attackRadius + e.radius) {
+                    e.hp -= player.damage;
+                    addFloatingText(e.x, e.y - 15, player.damage.toString(), '#fff', 16);
+                    if (e.hp <= 0) killEnemy(e);
                 }
             });
         }
 
         function killEnemy(e) {
-            score++;
-            player.xp += e.xpValue;
-            createParticles(e.x, e.y, e.color, 15);
-            
-            // Drop health pack chance
-            if (Math.random() < 0.2) {
-                healthPacks.push({ x: e.x, y: e.y, radius: 10 });
-            }
+            const earnedCoins = Math.floor(Math.random() * 10) + 10;
+            coins += earnedCoins;
+            gainXP(e.xpValue);
+            addFloatingText(e.x, e.y - 30, `+${earnedCoins} Coins`, '#f1c40f', 16);
+            enemies = enemies.filter(enemy => enemy !== e);
+            updateUI();
 
-            // Level up check
+            if (locationState === 'dungeon' && enemies.length === 0) {
+                const reward = activeMission * 100;
+                coins += reward;
+                updateUI();
+                showGameOver("MISSION COMPLETE", `You earned a bonus ${reward} coins!`);
+            }
+        }
+
+        function gainXP(amount) {
+            player.xp += amount;
             if (player.xp >= player.xpToNext) {
                 player.xp -= player.xpToNext;
                 player.level++;
-                player.xpToNext = Math.round(player.xpToNext * 1.4);
-                player.maxHp += 15;
-                player.hp = player.maxHp;
-                player.damage += 8;
-                addFloatingText(player.x, player.y - 30, 'LEVEL UP!', '#2ecc71', 24);
+                player.maxHp += 15; player.hp = player.maxHp;
+                addFloatingText(player.x, player.y - 40, 'LEVEL UP!', '#2ecc71', 22);
             }
-
-            document.getElementById('score').innerText = score;
-            document.getElementById('level-num').innerText = player.level;
+            updateUI();
         }
 
         function spawnEnemy() {
-            // Spawn around player off-screen
-            let x, y, dist;
-            do {
-                x = Math.random() * mapSize.width;
-                y = Math.random() * mapSize.height;
-                dist = Math.hypot(x - player.x, y - player.y);
-            } while (dist < 400);
+            let x = Math.random() * (mapSize.width - 100) + 50;
+            let y = Math.random() * (mapSize.height - 100) + 50;
+            enemies.push({
+                x, y, radius: 15, speed: 80 + (activeMission * 15),
+                hp: 50 * activeMission, maxHp: 50 * activeMission, damage: 8 * activeMission,
+                color: '#e74c3c', xpValue: 30 * activeMission
+            });
+        }
 
-            const type = Math.random();
-            let enemy;
+        // Modals & UI Management
+        function updateUI() {
+            document.getElementById('coins').innerText = coins;
+            document.getElementById('level-num').innerText = player.level;
+            document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+            document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
+            document.getElementById('inv-dmg').innerText = `Damage: ${player.damage}`;
+            document.getElementById('inv-potions').innerText = `Health Potions: ${player.potions}`;
+            document.getElementById('inv-ability').innerText = player.hasDash ? 'Dash (R)' : 'None';
+            document.getElementById('ability-ui').innerText = `ABILITY: ${player.hasDash ? 'DASH (R)' : 'NONE'}`;
+        }
 
-            if (type < 0.6) {
-                // Zombie (Standard)
-                enemy = {
-                    x, y, vx: 0, vy: 0, radius: 15, speed: 100, hp: 60, maxHp: 60,
-                    damage: 12, color: '#27ae60', xpValue: 35, attackCooldown: 1, attackTimer: 0
-                };
-            } else if (type < 0.85) {
-                // Runner (Fast, Low HP)
-                enemy = {
-                    x, y, vx: 0, vy: 0, radius: 12, speed: 170, hp: 35, maxHp: 35,
-                    damage: 8, color: '#e67e22', xpValue: 45, attackCooldown: 0.6, attackTimer: 0
-                };
-            } else {
-                // Brute (Slow, High HP, High Damage)
-                enemy = {
-                    x, y, vx: 0, vy: 0, radius: 24, speed: 65, hp: 160, maxHp: 160,
-                    damage: 25, color: '#8e44ad', xpValue: 90, attackCooldown: 1.5, attackTimer: 0
-                };
+        function toggleInventory() {
+            const el = document.getElementById('inv-modal');
+            el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+        }
+        function openMerchant() { document.getElementById('shop-modal').style.display = 'flex'; }
+        function closeMerchant() { document.getElementById('shop-modal').style.display = 'none'; }
+        function openMissions() { document.getElementById('mission-modal').style.display = 'flex'; }
+        function closeMissions() { document.getElementById('mission-modal').style.display = 'none'; }
+        function toggleMap() {
+            const el = document.getElementById('map-modal');
+            el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        function buyItem(item, cost) {
+            if (coins >= cost) {
+                coins -= cost;
+                if (item === 'potion') player.potions++;
+                if (item === 'damage') {
+                    player.damage += 15;
+                    document.getElementById('buy-dmg-btn').disabled = true;
+                }
+                if (item === 'dash') {
+                    player.hasDash = true;
+                    document.getElementById('buy-dash-btn').disabled = true;
+                }
+                updateUI();
             }
-            enemies.push(enemy);
+        }
+
+        function usePotion() {
+            if (player.potions > 0 && player.hp < player.maxHp) {
+                player.potions--;
+                player.hp = Math.min(player.maxHp, player.hp + 50);
+                updateUI();
+            }
+        }
+
+        function showGameOver(title, desc) {
+            document.getElementById('go-title').innerText = title;
+            document.getElementById('go-desc').innerText = desc;
+            document.getElementById('game-over').style.display = 'flex';
+        }
+
+        function returnToLobby() {
+            document.getElementById('game-over').style.display = 'none';
+            setupLobby();
         }
 
         function createParticles(x, y, color, count) {
             for (let i = 0; i < count; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 120 + 30;
-                particles.push({
-                    x, y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    radius: Math.random() * 3 + 2,
-                    color,
-                    life: 0.3 + Math.random() * 0.2
-                });
+                particles.push({ x, y, vx: (Math.random() - 0.5) * 100, vy: (Math.random() - 0.5) * 100, color, life: 0.4 });
             }
         }
 
         function addFloatingText(x, y, text, color, size) {
-            floatingTexts.push({ x, y, text, color, size, life: 0.8, maxLife: 0.8 });
-        }
-
-        function startGame() {
-            player.x = mapSize.width / 2;
-            player.y = mapSize.height / 2;
-            player.hp = 100;
-            player.maxHp = 100;
-            player.level = 1;
-            player.xp = 0;
-            player.xpToNext = 100;
-            player.damage = 35;
-            score = 0;
-            wave = 1;
-            enemiesToSpawn = 6;
-            enemies = [];
-            particles = [];
-            floatingTexts = [];
-            healthPacks = [];
-
-            document.getElementById('score').innerText = '0';
-            document.getElementById('level-num').innerText = '1';
-            document.getElementById('wave').innerText = '1';
-            document.getElementById('game-over').style.display = 'none';
-
-            gameState = 'playing';
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop);
-        }
-
-        function gameOver() {
-            gameState = 'gameover';
-            document.getElementById('go-title').innerText = 'GAME OVER';
-            document.getElementById('go-desc').innerText = `You survived ${wave - 1} waves and defeated ${score} enemies!`;
-            document.getElementById('start-btn').innerText = 'TRY AGAIN';
-            document.getElementById('game-over').style.display = 'flex';
+            floatingTexts.push({ x, y, text, color, size, life: 0.8 });
         }
 
         function update(dt) {
-            if (gameState !== 'playing') return;
+            if (player.attackTimer > 0) player.attackTimer -= dt;
+            if (player.dashTimer > 0) player.dashTimer -= dt;
 
-            // Attack cooldowns
-            if (player.attackTimer > 0) {
-                player.attackTimer -= dt;
-                player.swingProgress = 1 - (player.attackTimer / player.attackCooldown);
-                if (player.attackTimer <= 0) player.isAttacking = false;
-            }
+            // Movement
+            let mx = 0, my = 0;
+            if (keys['w'] || keys['arrowup']) my -= 1;
+            if (keys['s'] || keys['arrowdown']) my += 1;
+            if (keys['a'] || keys['arrowleft']) mx -= 1;
+            if (keys['d'] || keys['arrowright']) mx += 1;
 
-            // Movement Input
-            let moveX = 0;
-            let moveY = 0;
-            if (keys['w'] || keys['arrowup']) moveY -= 1;
-            if (keys['s'] || keys['arrowdown']) moveY += 1;
-            if (keys['a'] || keys['arrowleft']) moveX -= 1;
-            if (keys['d'] || keys['arrowright']) moveX += 1;
+            if (mx !== 0 && my !== 0) { mx *= 0.7071; my *= 0.7071; }
+            player.x = Math.max(player.radius, Math.min(mapSize.width - player.radius, player.x + mx * player.speed * dt));
+            player.y = Math.max(player.radius, Math.min(mapSize.height - player.radius, player.y + my * player.speed * dt));
 
-            if (keys[' ']) performAttack();
-
-            // Normalize vector
-            if (moveX !== 0 && moveY !== 0) {
-                moveX *= 0.7071;
-                moveY *= 0.7071;
-            }
-
-            player.x = Math.max(player.radius, Math.min(mapSize.width - player.radius, player.x + moveX * player.speed * dt));
-            player.y = Math.max(player.radius, Math.min(mapSize.height - player.radius, player.y + moveY * player.speed * dt));
-
-            // Camera follow
+            // Camera
             camera.x = player.x - canvas.width / 2;
             camera.y = player.y - canvas.height / 2;
-            camera.x = Math.max(0, Math.min(mapSize.width - canvas.width, camera.x));
-            camera.y = Math.max(0, Math.min(mapSize.height - canvas.height, camera.y));
 
-            // Face cursor
-            const screenPlayerX = player.x - camera.x;
-            const screenPlayerY = player.y - camera.y;
-            player.facingAngle = Math.atan2(mouse.y - screenPlayerY, mouse.x - screenPlayerX);
+            player.facingAngle = Math.atan2(mouse.y - (player.y - camera.y), mouse.x - (player.x - camera.x));
 
-            // Wave spawner system
-            if (enemies.length === 0 && enemiesToSpawn <= 0) {
-                wave++;
-                enemiesToSpawn = 5 + wave * 3;
-                document.getElementById('wave').innerText = wave;
-                addFloatingText(player.x, player.y - 40, `WAVE ${wave}`, '#e74c3c', 28);
-            }
-
-            if (enemiesToSpawn > 0 && enemies.length < 15) {
-                spawnEnemy();
-                enemiesToSpawn--;
-            }
-
-            // Health Pack Collision
-            for (let i = healthPacks.length - 1; i >= 0; i--) {
-                const hp = healthPacks[i];
-                if (Math.hypot(player.x - hp.x, player.y - hp.y) < player.radius + hp.radius) {
-                    player.hp = Math.min(player.maxHp, player.hp + 30);
-                    addFloatingText(player.x, player.y - 20, '+30 HP', '#2ecc71', 18);
-                    healthPacks.splice(i, 1);
-                }
-            }
-
-            // Update Enemies
+            // Enemy AI
             enemies.forEach(e => {
-                // Apply friction to knockback velocity
-                e.x += e.vx * dt;
-                e.y += e.vy * dt;
-                e.vx *= 0.88;
-                e.vy *= 0.88;
-
-                // Move towards player
-                const dx = player.x - e.x;
-                const dy = player.y - e.y;
+                const dx = player.x - e.x, dy = player.y - e.y;
                 const dist = Math.hypot(dx, dy);
+                if (dist > 0) { e.x += (dx / dist) * e.speed * dt; e.y += (dy / dist) * e.speed * dt; }
 
-                if (dist > 0) {
-                    e.x += (dx / dist) * e.speed * dt;
-                    e.y += (dy / dist) * e.speed * dt;
-                }
-
-                // Enemy attack player
-                if (e.attackTimer > 0) e.attackTimer -= dt;
-                if (dist < player.radius + e.radius && e.attackTimer <= 0) {
-                    player.hp -= e.damage;
-                    e.attackTimer = e.attackCooldown;
-                    createParticles(player.x, player.y, '#e74c3c', 8);
-                    addFloatingText(player.x, player.y - 15, `-${e.damage}`, '#e74c3c', 18);
-
-                    if (player.hp <= 0) {
-                        player.hp = 0;
-                        gameOver();
-                    }
+                if (dist < player.radius + e.radius) {
+                    player.hp -= e.damage * dt;
+                    updateUI();
+                    if (player.hp <= 0) showGameOver("DEFEATED", "You died in the dungeon.");
                 }
             });
 
-            // Update Particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.x += p.vx * dt;
-                p.y += p.vy * dt;
-                p.life -= dt;
+            // Particles & Floating Text
+            particles.forEach((p, i) => {
+                p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
                 if (p.life <= 0) particles.splice(i, 1);
-            }
-
-            // Update Floating Text
-            for (let i = floatingTexts.length - 1; i >= 0; i--) {
-                const ft = floatingTexts[i];
-                ft.y -= 30 * dt;
-                ft.life -= dt;
+            });
+            floatingTexts.forEach((ft, i) => {
+                ft.y -= 20 * dt; ft.life -= dt;
                 if (ft.life <= 0) floatingTexts.splice(i, 1);
-            }
-
-            // UI Bar Updates
-            document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
-            document.getElementById('xp-bar').style.width = `${(player.xp / player.xpToNext) * 100}%`;
+            });
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // 1. Draw Map Tiles
-            gridTiles.forEach(tile => {
-                if (tile.x + tileSize >= camera.x && tile.x <= camera.x + canvas.width &&
-                    tile.y + tileSize >= camera.y && tile.y <= camera.y + canvas.height) {
-                    ctx.fillStyle = tile.color;
-                    ctx.fillRect(tile.x, tile.y, tileSize - 2, tileSize - 2);
+            // Draw Grid Floor
+            ctx.fillStyle = locationState === 'lobby' ? '#22222e' : '#1a1a24';
+            ctx.fillRect(0, 0, mapSize.width, mapSize.height);
 
-                    if (tile.detail) {
-                        ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-                        ctx.fillRect(tile.x + 10, tile.y + 10, 20, 20);
-                    }
-                }
-            });
+            // Draw Interactables
+            interactables.forEach(obj => {
+                ctx.fillStyle = obj.type === 'merchant' ? '#f39c12' :
+                                obj.type === 'mission_board' ? '#3498db' :
+                                obj.type === 'chest' ? (obj.opened ? '#7f8c8d' : '#f1c40f') : '#9b59b6';
+                ctx.fillRect(obj.x - obj.radius, obj.y - obj.radius, obj.radius * 2, obj.radius * 2);
 
-            // Map Bounds Border
-            ctx.strokeStyle = '#e74c3c';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(0, 0, mapSize.width, mapSize.height);
-
-            // 2. Health Packs
-            healthPacks.forEach(hp => {
-                ctx.fillStyle = '#2ecc71';
-                ctx.beginPath();
-                ctx.arc(hp.x, hp.y, hp.radius, 0, Math.PI * 2);
-                ctx.fill();
                 ctx.fillStyle = '#fff';
-                ctx.fillRect(hp.x - 2, hp.y - 6, 4, 12);
-                ctx.fillRect(hp.x - 6, hp.y - 2, 12, 4);
+                ctx.font = '12px Arial';
+                ctx.fillText(obj.label, obj.x - 25, obj.y - obj.radius - 5);
             });
 
-            // 3. Enemies
+            // Draw Enemies
             enemies.forEach(e => {
-                // Shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                ctx.beginPath();
-                ctx.ellipse(e.x, e.y + e.radius - 2, e.radius, e.radius * 0.5, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Body (Blocky voxel-ish look)
                 ctx.fillStyle = e.color;
                 ctx.fillRect(e.x - e.radius, e.y - e.radius, e.radius * 2, e.radius * 2);
-
-                // Eyes
-                ctx.fillStyle = '#fff';
-                const eyeOffset = e.radius * 0.4;
-                ctx.fillRect(e.x - eyeOffset - 2, e.y - eyeOffset - 2, 5, 5);
-                ctx.fillRect(e.x + eyeOffset - 3, e.y - eyeOffset - 2, 5, 5);
-
-                // Health bar
-                if (e.hp < e.maxHp) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-                    ctx.fillRect(e.x - 15, e.y - e.radius - 12, 30, 5);
-                    ctx.fillStyle = '#e74c3c';
-                    ctx.fillRect(e.x - 15, e.y - e.radius - 12, (e.hp / e.maxHp) * 30, 5);
-                }
             });
 
-            // 4. Player
-            // Shadow
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.beginPath();
-            ctx.ellipse(player.x, player.y + player.radius - 2, player.radius, player.radius * 0.5, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Player body
-            ctx.save();
-            ctx.translate(player.x, player.y);
-            ctx.rotate(player.facingAngle);
-
-            // Blocky Hero Body
+            // Draw Player
             ctx.fillStyle = '#3498db';
-            ctx.fillRect(-player.radius, -player.radius, player.radius * 2, player.radius * 2);
+            ctx.fillRect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2);
 
-            // Eyes
-            ctx.fillStyle = '#f1c40f';
-            ctx.fillRect(4, -8, 5, 5);
-            ctx.fillRect(4, 3, 5, 5);
-
-            // Weapon / Attack Animation (Arc Swing)
-            const swordLen = 35;
-            if (player.isAttacking) {
-                const startAngle = -player.attackAngle / 2;
-                const currentAngle = startAngle + (player.attackAngle * player.swingProgress);
-
-                ctx.save();
-                ctx.rotate(currentAngle);
-                ctx.fillStyle = '#ecf0f1';
-                ctx.fillRect(10, -3, swordLen, 6);
-                
-                // Slash trail effect
-                ctx.fillStyle = 'rgba(236, 240, 241, 0.4)';
-                ctx.beginPath();
-                ctx.arc(0, 0, player.attackRadius, -0.4, 0.4);
-                ctx.lineTo(0, 0);
-                ctx.fill();
-                ctx.restore();
-            } else {
-                // Idle Sword Position
-                ctx.fillStyle = '#bdc3c7';
-                ctx.fillRect(10, 8, swordLen - 5, 5);
-            }
-
-            ctx.restore();
-
-            // 5. Particles
+            // Draw Particles & Floating Text
             particles.forEach(p => {
                 ctx.fillStyle = p.color;
-                ctx.globalAlpha = Math.max(0, p.life / 0.5);
-                ctx.fillRect(p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 2);
-                ctx.globalAlpha = 1;
+                ctx.fillRect(p.x, p.y, 4, 4);
             });
-
-            // 6. Floating Damage Text
             floatingTexts.forEach(ft => {
                 ctx.fillStyle = ft.color;
                 ctx.font = `bold ${ft.size}px Arial`;
-                ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
-                ctx.fillText(ft.text, ft.x - 10, ft.y);
-                ctx.globalAlpha = 1;
+                ctx.fillText(ft.text, ft.x, ft.y);
             });
 
             ctx.restore();
@@ -619,14 +501,15 @@
         function gameLoop(time) {
             const dt = Math.min((time - lastTime) / 1000, 0.1);
             lastTime = time;
-
             update(dt);
             draw();
-
-            if (gameState === 'playing') {
-                requestAnimationFrame(gameLoop);
-            }
+            requestAnimationFrame(gameLoop);
         }
+
+        setupLobby();
+        updateUI();
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
