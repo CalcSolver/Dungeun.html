@@ -356,6 +356,7 @@
             if (k === 'e') toggleInventory();
             if (k === 'f') interactWithNearby();
             if (k === '1') usePotion();
+            if (e.code === 'Space') performAttack();
         });
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
         canvas.addEventListener('mousemove', e => {
@@ -424,7 +425,7 @@
                     hp: Math.round((isArcher ? 30 : 45) * config.difficulty),
                     maxHp: Math.round((isArcher ? 30 : 45) * config.difficulty),
                     damage: Math.round(8 * config.difficulty),
-                    color: isArcher ? '#f1c40f' : REGIONS[config.region].color, // Archers are yellow!
+                    color: isArcher ? '#f1c40f' : REGIONS[config.region].color,
                     xpValue: Math.round(25 * config.difficulty),
                     aggroRange: 280,
                     shootTimer: 0,
@@ -458,6 +459,7 @@
         function performAttack() {
             if (player.attackTimer > 0) return;
             player.isAttacking = true;
+            player.swingProgress = 1.0;
             player.attackTimer = player.attackCooldown;
 
             const currentDamage = player.baseDamage + ((swordLevel - 1) * 20);
@@ -647,6 +649,7 @@
 
         function update(dt) {
             if (player.attackTimer > 0) player.attackTimer -= dt;
+            if (player.swingProgress > 0) player.swingProgress = Math.max(0, player.swingProgress - dt * 4);
 
             // Player Movement
             let mx = 0, my = 0;
@@ -731,6 +734,16 @@
             ctx.fillStyle = locationState === 'lobby' ? '#1c1c24' : REGIONS[currentRegion].bgTile;
             ctx.fillRect(0, 0, curMapSize.width, curMapSize.height);
 
+            // Map Grid Pattern
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+            ctx.lineWidth = 1;
+            for (let x = 0; x < curMapSize.width; x += 60) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, curMapSize.height); ctx.stroke();
+            }
+            for (let y = 0; y < curMapSize.height; y += 60) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(curMapSize.width, y); ctx.stroke();
+            }
+
             // Map Bounds
             ctx.strokeStyle = REGIONS[currentRegion].color;
             ctx.lineWidth = 6;
@@ -738,79 +751,108 @@
 
             // Interactable Stations / Objects
             interactables.forEach(obj => {
-                ctx.fillStyle = obj.type === 'upgrade' ? '#f39c12' :
-                                obj.type === 'mission_board' ? '#2ecc71' :
-                                obj.type === 'boat' ? '#3498db' :
-                                obj.type === 'portal' ? (obj.active ? '#9b59b6' : '#444') :
-                                (obj.opened ? '#555' : '#f1c40f');
-                
-                ctx.fillRect(obj.x - obj.radius, obj.y - obj.radius, obj.radius * 2, obj.radius * 2);
+                ctx.save();
+                ctx.translate(obj.x, obj.y);
 
-                ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial';
-                ctx.fillText(obj.label, obj.x - 30, obj.y - obj.radius - 6);
-            });
-
-            // Enemies (Yellow Triangle Mobs for Ranged Archers)
-            enemies.forEach(e => {
-                ctx.fillStyle = e.color;
-                if (e.type === 'archer') {
-                    ctx.beginPath();
-                    ctx.moveTo(e.x, e.y - e.radius);
-                    ctx.lineTo(e.x - e.radius, e.y + e.radius);
-                    ctx.lineTo(e.x + e.radius, e.y + e.radius);
-                    ctx.closePath();
-                    ctx.fill();
-                } else {
-                    ctx.fillRect(e.x - e.radius, e.y - e.radius, e.radius * 2, e.radius * 2);
+                if (obj.type === 'upgrade') {
+                    ctx.fillStyle = '#f1c40f';
+                    ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#000'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⚒', 0, 5);
+                } else if (obj.type === 'mission_board') {
+                    ctx.fillStyle = '#e67e22';
+                    ctx.fillRect(-obj.radius, -obj.radius, obj.radius * 2, obj.radius * 2);
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('📜', 0, 5);
+                } else if (obj.type === 'boat') {
+                    ctx.fillStyle = '#3498db';
+                    ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('⛵', 0, 6);
+                } else if (obj.type === 'chest') {
+                    ctx.fillStyle = obj.opened ? '#7f8c8d' : '#f39c12';
+                    ctx.fillRect(-15, -10, 30, 20);
+                    ctx.fillStyle = '#000'; ctx.fillRect(-4, -4, 8, 8);
+                } else if (obj.type === 'portal') {
+                    ctx.fillStyle = obj.active ? '#9b59b6' : '#34495e';
+                    ctx.beginPath(); ctx.arc(0, 0, obj.radius, 0, Math.PI * 2); ctx.fill();
+                    if (obj.active) {
+                        ctx.strokeStyle = '#8e44ad'; ctx.lineWidth = 4;
+                        ctx.beginPath(); ctx.arc(0, 0, obj.radius + 4, 0, Math.PI * 2); ctx.stroke();
+                    }
                 }
-                
-                // Health bar
-                ctx.fillStyle = '#000'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, 24, 4);
-                ctx.fillStyle = '#e74c3c'; ctx.fillRect(e.x - 12, e.y - e.radius - 8, (e.hp / e.maxHp) * 24, 4);
+
+                // Interactive Prompts
+                ctx.fillStyle = '#fff';
+                ctx.font = '11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(obj.label, 0, -obj.radius - 8);
+                ctx.restore();
             });
 
-            // Projectiles (Arrows)
-            ctx.fillStyle = '#f1c40f';
+            // Draw Enemies
+            enemies.forEach(e => {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.fillStyle = e.color;
+                ctx.beginPath(); ctx.arc(0, 0, e.radius, 0, Math.PI * 2); ctx.fill();
+
+                // Enemy HP Bar
+                ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(-15, -24, 30, 4);
+                ctx.fillStyle = '#e74c3c'; ctx.fillRect(-15, -24, (e.hp / e.maxHp) * 30, 4);
+                ctx.restore();
+            });
+
+            // Draw Projectiles
             projectiles.forEach(p => {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
             });
 
-            // Hero Player
+            // Draw Player
+            ctx.save();
+            ctx.translate(player.x, player.y);
             ctx.fillStyle = '#3498db';
-            ctx.fillRect(player.x - player.radius, player.y - player.radius, player.radius * 2, player.radius * 2);
+            ctx.beginPath(); ctx.arc(0, 0, player.radius, 0, Math.PI * 2); ctx.fill();
 
-            // Attack Arc Visual
-            if (player.isAttacking) {
-                ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-                ctx.lineWidth = 3;
+            // Swing indicator arc
+            if (player.swingProgress > 0) {
+                ctx.strokeStyle = `rgba(241, 196, 15, ${player.swingProgress})`;
+                ctx.lineWidth = 4;
                 ctx.beginPath();
-                ctx.arc(player.x, player.y, player.attackRadius, player.facingAngle - 0.5, player.facingAngle + 0.5);
+                ctx.arc(0, 0, player.attackRadius, player.facingAngle - player.attackAngle/2, player.facingAngle + player.attackAngle/2);
                 ctx.stroke();
             }
 
-            // Floating Text
+            // Facing Direction Pointer
+            ctx.rotate(player.facingAngle);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(player.radius - 2, -3, 8, 6);
+            ctx.restore();
+
+            // Floating Text Highlights
             floatingTexts.forEach(ft => {
                 ctx.fillStyle = ft.color;
-                ctx.font = `bold ${ft.size}px Arial`;
+                ctx.font = `bold ${ft.size}px sans-serif`;
+                ctx.textAlign = 'center';
                 ctx.fillText(ft.text, ft.x, ft.y);
             });
 
             ctx.restore();
         }
 
-        function gameLoop(time) {
-            const dt = Math.min((time - lastTime) / 1000, 0.1);
-            lastTime = time;
+        // Main Loop Engine
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
             update(dt);
             draw();
+
             requestAnimationFrame(gameLoop);
         }
 
+        // Initialization
         loadGame();
         setupLobby();
-        lastTime = performance.now();
         requestAnimationFrame(gameLoop);
     </script>
 </body>
