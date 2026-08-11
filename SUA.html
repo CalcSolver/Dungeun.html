@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Intro Sequence</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body {
+            background-color: #050508;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Intro Screen Container */
+        #intro-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: #08080d;
+            border: 3px solid #2a2a38;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.95);
+        }
+
+        /* Background Glow & Particles */
+        .bg-glow {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(142, 68, 173, 0.3) 0%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            animation: pulseGlow 3s infinite alternate ease-in-out;
+        }
+
+        /* Animated Elements */
+        .hand-icon {
+            font-size: 80px;
+            opacity: 0;
+            transform: scale(0.2) rotate(-20deg);
+            z-index: 2;
+        }
+
+        .portal-ring {
+            position: absolute;
+            width: 0px;
+            height: 0px;
+            border: 4px dashed #8e44ad;
+            border-radius: 50%;
+            opacity: 0;
+            z-index: 1;
+        }
+
+        .game-title {
+            font-size: 42px;
+            font-weight: 900;
+            color: #f1c40f;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-top: 20px;
+            opacity: 0;
+            transform: translateY(20px);
+            text-shadow: 0 0 15px rgba(241, 196, 15, 0.5), 3px 3px 0px #000;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #8e44ad;
+            letter-spacing: 2px;
+            font-weight: bold;
+            opacity: 0;
+            margin-top: 8px;
+            z-index: 2;
+            text-transform: uppercase;
+        }
+
+        /* Timer Bar (15s Visual Progress) */
+        .timer-container {
+            position: absolute;
+            bottom: 30px;
+            width: 60%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+
+        .timer-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #8e44ad, #f1c40f);
+            border-radius: 4px;
+        }
+
+        .skip-btn {
+            position: absolute;
+            bottom: 50px;
+            padding: 8px 16px;
+            background: transparent;
+            border: 2px solid #555;
+            color: #aaa;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 11px;
+            transition: all 0.2s;
+            z-index: 5;
+        }
+        .skip-btn:hover { border-color: #f1c40f; color: #fff; }
+
+        /* Animation Keyframes */
+        @keyframes pulseGlow {
+            0% { transform: scale(0.8); opacity: 0.3; }
+            100% { transform: scale(1.3); opacity: 0.7; }
+        }
+
+        @keyframes handAppear {
+            0% { opacity: 0; transform: scale(0.2) rotate(-30deg); }
+            50% { opacity: 1; transform: scale(1.2) rotate(10deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+
+        @keyframes handWiggle {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(10deg); }
+        }
+
+        @keyframes portalExpand {
+            0% { width: 0px; height: 0px; opacity: 0; transform: rotate(0deg); }
+            50% { opacity: 0.8; }
+            100% { width: 220px; height: 220px; opacity: 0.3; transform: rotate(360deg); }
+        }
+
+        @keyframes textFadeUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes timerFill {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        @keyframes flashOut {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="intro-container">
+        <div class="bg-glow"></div>
+        <div id="portal" class="portal-ring"></div>
+        <div id="hand" class="hand-icon">✋</div>
+        <div id="title" class="game-title">Cave Runner</div>
+        <div id="sub" class="subtitle">Deep Dungeon Explorer</div>
+
+        <div class="timer-container">
+            <div id="progress" class="timer-bar"></div>
+        </div>
+
+        <button class="skip-btn" onclick="finishIntro()">SKIP INTRO</button>
+    </div>
+
+    <script>
+        const hand = document.getElementById('hand');
+        const portal = document.getElementById('portal');
+        const title = document.getElementById('title');
+        const sub = document.getElementById('sub');
+        const progress = document.getElementById('progress');
+        const container = document.getElementById('intro-container');
+
+        // Timeline Trigger (Exact 15-second sequence)
+        
+        // 1. Progress Bar Starts (0s - 15s)
+        progress.style.animation = 'timerFill 15s linear forwards';
+
+        // 2. Yellow Hand pops in (At 1.5 Seconds)
+        setTimeout(() => {
+            hand.style.animation = 'handAppear 1s ease-out forwards';
+        }, 1500);
+
+        // 3. Purple Portal expands behind Hand (At 4.0 Seconds)
+        setTimeout(() => {
+            portal.style.animation = 'portalExpand 2.5s ease-out forwards';
+            hand.style.animation = 'handWiggle 1.5s ease-in-out infinite alternate';
+        }, 4000);
+
+        // 4. Game Title slides up (At 7.0 Seconds)
+        setTimeout(() => {
+            title.style.animation = 'textFadeUp 1s ease-out forwards';
+        }, 7000);
+
+        // 5. Subtitle appears (At 9.5 Seconds)
+        setTimeout(() => {
+            sub.style.animation = 'textFadeUp 1s ease-out forwards';
+        }, 9500);
+
+        // 6. Hand High-Fives / Wave Gesture (At 12.0 Seconds)
+        setTimeout(() => {
+            hand.innerText = '👋';
+        }, 12000);
+
+        // 7. Fade Out & Finish (At 15.0 Seconds)
+        setTimeout(() => {
+            finishIntro();
+        }, 15000);
+
+        function finishIntro() {
+            container.style.animation = 'flashOut 0.8s ease-out forwards';
+            setTimeout(() => {
+                container.innerHTML = '<h2 style="color: #2ecc71; letter-spacing: 2px;">STARTING GAME...</h2>';
+                container.style.animation = 'none';
+            }, 800);
+        }
+    </script>
+</body>
+</html>
